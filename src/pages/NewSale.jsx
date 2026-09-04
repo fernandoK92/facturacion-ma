@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useBarcodeScanner } from "../hooks/useBarcodeScanner";
 import { useProducts } from "../hooks/useProducts";
 import { getProduct, addStock, normalizeBarcode, generarCodigoInterno } from "../lib/productStore";
 import { recordSale } from "../lib/salesStore";
+import { leerVentaEnCurso, guardarVentaEnCurso, borrarVentaEnCurso } from "../lib/ventaEnCursoStore";
 import { money } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import { ETIQUETA_ROL } from "../lib/permisos";
@@ -25,9 +26,21 @@ export default function NewSale() {
     [productos]
   );
 
-  const [cart, setCart] = useState([]); // { barcode, nombre, precio, cantidad }
-  const [cliente, setCliente] = useState(EMPTY_CLIENTE);
-  const [metodo, setMetodo] = useState("Efectivo");
+  // Se restaura lo que hubiera quedado a medio armar (F5, cambio de
+  // pantalla) — así no se pierde una venta en curso por accidente.
+  const [cart, setCart] = useState(() => leerVentaEnCurso()?.cart ?? []); // { barcode, nombre, precio, cantidad }
+  const [cliente, setCliente] = useState(() => leerVentaEnCurso()?.cliente ?? EMPTY_CLIENTE);
+  const [metodo, setMetodo] = useState(() => leerVentaEnCurso()?.metodo ?? "Efectivo");
+
+  // Guarda el borrador mientras haya algo en el carrito; lo borra apenas
+  // se vacía (venta cobrada o cancelada).
+  useEffect(() => {
+    if (cart.length > 0) {
+      guardarVentaEnCurso({ cart, cliente, metodo });
+    } else {
+      borrarVentaEnCurso();
+    }
+  }, [cart, cliente, metodo]);
   const [manual, setManual] = useState("");
   const [confirmPay, setConfirmPay] = useState(false);
   const [cobrando, setCobrando] = useState(false);
@@ -106,11 +119,13 @@ export default function NewSale() {
     try {
       await recordSale({ items: cart, total: montoVenta, metodoPago: metodo, cliente, usuario: actor });
       // Descontamos del inventario solo en líneas de producto real
-      // (recargas y bus no tienen stock que descontar).
+      // (recargas y bus no tienen stock que descontar). No dejamos un
+      // "ajuste" suelto por cada línea: recordSale ya deja UN registro
+      // "venta" con todo el detalle en Actividad.
       await Promise.all(
         cart
           .filter((l) => (l.tipo ?? "producto") === "producto")
-          .map((l) => addStock(l.barcode, -l.cantidad, actor).catch(() => {}))
+          .map((l) => addStock(l.barcode, -l.cantidad, actor, "ajuste", false).catch(() => {}))
       );
       flash(`Venta registrada · ${money(montoVenta)}`);
       cancelarVenta();

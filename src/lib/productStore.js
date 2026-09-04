@@ -236,8 +236,11 @@ export async function upsertProduct({ barcode, nombre, precio, unidades, categor
  * @param {{id?:string, nombre?:string, rol?:string}} [actor]
  * @param {string} [tipo] "ajuste" (default, p. ej. los botones −1/+1/+10) o
  *   "ingreso" (pantalla "Ingresar inventario") / "merma".
+ * @param {boolean} [registrarLog] en false no deja movimiento propio —
+ *   lo usa el checkout de Terminal POS, que ya deja UN registro "venta"
+ *   con todo el detalle en vez de uno suelto por cada producto vendido.
  */
-export async function addStock(barcode, delta, actor, tipo = "ajuste") {
+export async function addStock(barcode, delta, actor, tipo = "ajuste", registrarLog = true) {
   const key = normalizeBarcode(barcode);
   const prev = cache[key];
   if (!prev) throw new Error("El producto no existe");
@@ -267,7 +270,7 @@ export async function addStock(barcode, delta, actor, tipo = "ajuste") {
     writeLocal();
   }
 
-  if (d !== 0) {
+  if (d !== 0 && registrarLog) {
     await registrarActividad({
       barcode: key,
       nombre: prev.nombre,

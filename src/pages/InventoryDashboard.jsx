@@ -36,6 +36,7 @@ const MOV_META = {
   ingreso: { icon: "📥", label: "Ingreso de stock" },
   ajuste: { icon: "🔧", label: "Ajuste de stock" },
   merma: { icon: "📉", label: "Merma" },
+  venta: { icon: "💰", label: "Venta" },
 };
 
 const EMPTY_FORM = { nombre: "", precio: "", unidades: "" };

@@ -5,6 +5,8 @@
 // escrituras optimistas.
 
 import { supabase, supabaseReady } from "./supabase";
+import { registrarMovimiento } from "./movimientosStore";
+import { money } from "./format";
 
 const STORAGE_KEY = "facturacion-ma:ventas:v1";
 const listeners = new Set();
@@ -159,5 +161,27 @@ export async function recordSale(venta) {
   } else {
     writeLocal();
   }
+
+  // Deja registro en "Actividad" (Inventario): quién vendió, qué, cuánto
+  // y cuándo — sin romper la venta si el log falla.
+  try {
+    const detalleItems = registro.items
+      .map((i) => `${i.nombre} x${i.cantidad}`)
+      .join(", ");
+    const numArticulos = registro.items.reduce((a, i) => a + i.cantidad, 0);
+    await registrarMovimiento({
+      barcode: registro.id,
+      nombre: money(registro.total),
+      tipo: "venta",
+      cantidad: 0,
+      detalle: `${numArticulos} art.: ${detalleItems} · ${registro.metodoPago}${registro.cliente?.nombre ? ` · Cliente: ${registro.cliente.nombre}` : ""}`,
+      usuarioId: registro.usuarioId,
+      usuarioNombre: registro.usuarioNombre,
+      usuarioRol: registro.usuarioRol,
+    });
+  } catch (err) {
+    console.debug("No se pudo registrar la actividad de la venta —", err.message);
+  }
+
   return registro;
 }
