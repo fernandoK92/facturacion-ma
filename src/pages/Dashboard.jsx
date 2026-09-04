@@ -99,7 +99,7 @@ function Panel({ goTo }) {
         <Card
           title="Ventas recientes"
           right={
-            <button style={ps.link} onClick={() => goTo("Historial Facturas")}>
+            <button style={ps.link} onClick={() => goTo("Historial de ventas")}>
               Ver historial →
             </button>
           }
@@ -163,7 +163,7 @@ const ROUTES = {
   Escanear: ScanProduct,
   "Terminal POS": NewSale,
   Inventario: InventoryDashboard,
-  "Historial Facturas": SalesHistory,
+  "Historial de ventas": SalesHistory,
   "Análisis de ventas": SalesAnalytics,
   Clientes,
   Usuarios,

@@ -4,6 +4,9 @@ import { PageHeader, Card, KpiCard, EmptyState } from "../components/ui";
 import { money, fechaHoraCorta, fechaHoraLarga } from "../lib/format";
 import { ETIQUETA_ROL } from "../lib/permisos";
 
+const numArticulos = (v) => v.items.reduce((a, it) => a + it.cantidad, 0);
+const TIPO_ICON = { recarga: "📱 ", bus: "🚌 " };
+
 export default function SalesHistory() {
   const ventas = useSales();
   const hoy = useTodaySales();
@@ -43,7 +46,7 @@ export default function SalesHistory() {
                       {v.cliente?.nombre || "Consumidor final"}
                     </div>
                     <div style={{ fontSize: 11, color: "#8a8fa8" }}>
-                      {v.id} · {fechaHoraCorta(v.fecha)} · {v.metodoPago}
+                      {v.id} · {fechaHoraCorta(v.fecha)} · {v.metodoPago} · {numArticulos(v)} art.
                       {v.usuarioNombre && (
                         <> · {v.usuarioNombre}{v.usuarioRol && ` (${ETIQUETA_ROL[v.usuarioRol] ?? v.usuarioRol})`}</>
                       )}
@@ -63,7 +66,7 @@ export default function SalesHistory() {
                     {v.items.map((it) => (
                       <div key={it.barcode} style={s.detailRow}>
                         <span style={{ flex: 1 }}>
-                          {it.nombre}
+                          {TIPO_ICON[it.tipo] ?? ""}{it.nombre}
                           <span style={{ color: "#8a8fa8" }}> × {it.cantidad}</span>
                         </span>
                         <span>{money(it.precio * it.cantidad)}</span>

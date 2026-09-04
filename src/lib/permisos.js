@@ -14,7 +14,7 @@ const TODO = [
   "Escanear",
   "Terminal POS",
   "Inventario",
-  "Historial Facturas",
+  "Historial de ventas",
   "Análisis de ventas",
   "Clientes",
   "Usuarios",

@@ -96,7 +96,7 @@ const NAV_ITEMS = [
   { Icon: TbBarcode, label: "Escanear", section: "main" },
   { Icon: TbCashRegister, label: "Terminal POS", section: "main" },
   { Icon: TbPackages, label: "Inventario", section: "main" },
-  { Icon: TbReceipt, label: "Historial Facturas", section: "main" },
+  { Icon: TbReceipt, label: "Historial de ventas", section: "main" },
   { Icon: TbChartBar, label: "Análisis de ventas", section: "reports" },
   { Icon: TbUsers, label: "Clientes", section: "reports" },
   { Icon: TbUserCog, label: "Usuarios", section: "reports" },
