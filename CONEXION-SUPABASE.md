@@ -79,6 +79,14 @@ apaga **"Confirm email"** → Save.
 (Es una herramienta interna; así las cuentas del personal quedan activas al
 instante sin tener que confirmar un correo.)
 
+⚠️ **Esto solo aplica a las cuentas que se registren de ahí en adelante.**
+Si ya habías creado cuentas (la tuya incluida) mientras el switch seguía
+prendido, esas quedaron marcadas como "sin confirmar" y Supabase les va a
+seguir bloqueando el login aunque ya hayas apagado el switch. Para
+liberarlas: SQL Editor → New query → pega y corre
+`supabase/confirmar_correos_pendientes.sql` (una sola vez, confirma a
+todas de un saque). Después de eso ya pueden iniciar sesión normal.
+
 ### 3. Crear la primera cuenta
 
 Abre la app → pestaña **"Crear cuenta"** → regístrate con tu correo.
