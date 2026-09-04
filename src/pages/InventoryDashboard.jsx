@@ -6,6 +6,7 @@ import { upsertProduct, deleteProduct } from "../lib/productStore";
 import { Card, KpiCard, EmptyState } from "../components/ui";
 import { money, UMBRAL_STOCK_BAJO, fechaHoraCorta } from "../lib/format";
 import { ETIQUETA_ROL } from "../lib/permisos";
+import { useAuth } from "../context/AuthContext";
 import IngresoInventario from "./IngresoInventario";
 
 function porTexto(p) {
@@ -26,6 +27,15 @@ const BADGE = {
   sin: { bg: "#ffebee", fg: "#c62828", label: "Sin stock" },
   bajo: { bg: "#fff8e1", fg: "#e65100", label: "Stock bajo" },
   ok: { bg: "#e8f5e9", fg: "#2e7d32", label: "Normal" },
+};
+
+// Cómo se muestra cada tipo de movimiento en la pestaña "Actividad".
+const MOV_META = {
+  creacion: { icon: "🆕", label: "Producto nuevo" },
+  edicion: { icon: "✏️", label: "Editado" },
+  ingreso: { icon: "📥", label: "Ingreso de stock" },
+  ajuste: { icon: "🔧", label: "Ajuste de stock" },
+  merma: { icon: "📉", label: "Merma" },
 };
 
 const EMPTY_FORM = { nombre: "", precio: "", unidades: "" };
@@ -63,6 +73,8 @@ export default function InventoryDashboard() {
   const stats = useProductStats();
   const movimientos = useMovimientos();
   const esMovil = useIsMobile();
+  const { user, nombre, rol } = useAuth();
+  const actor = { id: user?.id, nombre: nombre || "Sistema", rol };
 
   const [busca, setBusca] = useState("");
   const [tab, setTab] = useState("stock");
@@ -102,7 +114,7 @@ export default function InventoryDashboard() {
     setGuardando(barcode);
     setError("");
     try {
-      await upsertProduct({ barcode, nombre: form.nombre, precio: form.precio, unidades: form.unidades });
+      await upsertProduct({ barcode, nombre: form.nombre, precio: form.precio, unidades: form.unidades }, actor);
       setEditando("");
     } catch (err) {
       setError("No se pudo guardar: " + err.message);
@@ -172,7 +184,7 @@ export default function InventoryDashboard() {
             {[
               { id: "stock", label: `Todos (${productos.length})` },
               { id: "alertas", label: `Alertas (${bajos.length})` },
-              { id: "movimientos", label: `Ingresos (${movimientos.length})` },
+              { id: "movimientos", label: `Actividad (${movimientos.length})` },
             ].map((t) => (
               <button
                 key={t.id}
@@ -320,21 +332,39 @@ export default function InventoryDashboard() {
           {tab === "movimientos" &&
             (movimientos.length === 0 ? (
               <EmptyState
-                icon="📥"
-                title="Sin ingresos registrados"
-                hint='Usa el botón "Ingresar inventario" para sumar stock y dejar registro de quién lo hizo.'
+                icon="📋"
+                title="Sin actividad registrada"
+                hint="Acá vas a ver cada alta, edición o ingreso de stock que haga cualquier usuario (vendedor incluido), con quién y cuándo."
               />
             ) : (
-              <Card title="Ingresos de inventario" subtitle={`${movimientos.length} registro(s)`}>
-                {movimientos.map((m) => (
-                  <div key={m.id} style={s.movRow}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1c2e" }}>{m.nombre}</div>
-                      <div style={{ fontSize: 11, color: "#8a8fa8" }}>{fechaHoraCorta(m.fecha)} · {m.usuarioNombre}</div>
+              <Card title="Actividad de inventario" subtitle={`${movimientos.length} registro(s)`}>
+                {movimientos.map((m) => {
+                  const meta = MOV_META[m.tipo] ?? MOV_META.ajuste;
+                  const quien = m.usuarioNombre
+                    ? `${m.usuarioNombre}${m.usuarioRol ? ` (${ETIQUETA_ROL[m.usuarioRol] ?? m.usuarioRol})` : ""}`
+                    : "Sistema";
+                  return (
+                    <div key={m.id} style={s.movRow}>
+                      <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1c2e" }}>
+                          {meta.label} · {m.nombre}
+                        </div>
+                        {m.detalle && (
+                          <div style={{ fontSize: 12, color: "#5a5e78", marginTop: 1 }}>{m.detalle}</div>
+                        )}
+                        <div style={{ fontSize: 11, color: "#8a8fa8", marginTop: 2 }}>
+                          {fechaHoraCorta(m.fecha)} · {quien}
+                        </div>
+                      </div>
+                      {m.cantidad !== 0 && (
+                        <div style={{ fontSize: 14, fontWeight: 700, color: m.cantidad > 0 ? "#2e7d32" : "#c62828", whiteSpace: "nowrap" }}>
+                          {m.cantidad > 0 ? "+" : ""}{m.cantidad} uds.
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#2e7d32" }}>+{m.cantidad} uds.</div>
-                  </div>
-                ))}
+                  );
+                })}
               </Card>
             ))}
         </>

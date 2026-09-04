@@ -8,7 +8,7 @@ import { supabase, supabaseReady } from "./supabase";
 const STORAGE_KEY = "facturacion-ma:movimientos:v1";
 const listeners = new Set();
 
-/** { id, barcode, nombre, tipo, cantidad, usuarioNombre, fecha(ms) } */
+/** { id, barcode, nombre, tipo, cantidad, detalle, usuarioNombre, usuarioRol, fecha(ms) } */
 let cache = [];
 
 function emit() {
@@ -44,7 +44,9 @@ function rowToMov(r) {
     nombre: r.nombre ?? "",
     tipo: r.tipo ?? "ingreso",
     cantidad: Number(r.cantidad) || 0,
+    detalle: r.detalle ?? "",
     usuarioNombre: r.usuario_nombre ?? "",
+    usuarioRol: r.usuario_rol ?? "",
     fecha: r.fecha ? Date.parse(r.fecha) : Date.now(),
   };
 }
@@ -91,9 +93,13 @@ export function getMovimientos() {
 }
 
 /**
- * Registra un ingreso de inventario (no toca el stock: eso lo hace quien llama, con addStock).
- * @param {{barcode:string, nombre:string, cantidad:number, tipo?:string,
- *          usuarioId?:string, usuarioNombre?:string}} mov
+ * Registra un movimiento de actividad: ingreso de stock, ajuste, alta de
+ * producto o edición. No toca el stock ni el producto en sí — eso lo hace
+ * quien llama (addStock / upsertProduct); esto solo deja el rastro para
+ * que admin/propietaria vean qué se hizo, quién y cuándo.
+ * @param {{barcode:string, nombre:string, cantidad?:number, tipo?:string,
+ *          detalle?:string, usuarioId?:string, usuarioNombre?:string,
+ *          usuarioRol?:string}} mov
  */
 export async function registrarMovimiento(mov) {
   const now = Date.now();
@@ -103,7 +109,9 @@ export async function registrarMovimiento(mov) {
     nombre: mov.nombre ?? "",
     tipo: mov.tipo || "ingreso",
     cantidad: Math.round(Number(mov.cantidad) || 0),
+    detalle: mov.detalle ?? "",
     usuarioNombre: mov.usuarioNombre || "Sistema",
+    usuarioRol: mov.usuarioRol ?? "",
     fecha: now,
   };
 
@@ -116,8 +124,10 @@ export async function registrarMovimiento(mov) {
       nombre: registro.nombre,
       tipo: registro.tipo,
       cantidad: registro.cantidad,
+      detalle: registro.detalle,
       usuario_id: mov.usuarioId ?? null,
       usuario_nombre: registro.usuarioNombre,
+      usuario_rol: registro.usuarioRol,
     });
     if (error) {
       await hydrateMovimientos();

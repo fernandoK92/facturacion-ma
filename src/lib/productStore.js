@@ -10,6 +10,17 @@
 // dejar registro de quién creó / modificó cada producto.
 
 import { supabase, supabaseReady } from "./supabase";
+import { registrarMovimiento } from "./movimientosStore";
+
+// Deja registro de actividad (para admin/propietaria) sin romper la
+// operación principal si el log falla (p. ej. falta correr la migración).
+async function registrarActividad(mov) {
+  try {
+    await registrarMovimiento(mov);
+  } catch (err) {
+    console.debug("No se pudo registrar la actividad —", err.message);
+  }
+}
 
 const STORAGE_KEY = "facturacion-ma:productos:v1";
 const listeners = new Set();
@@ -178,15 +189,55 @@ export async function upsertProduct({ barcode, nombre, precio, unidades, categor
   } else {
     writeLocal();
   }
+
+  // Rastro de actividad: alta o edición, con quién y qué cambió.
+  if (esNuevo) {
+    await registrarActividad({
+      barcode: producto.barcode,
+      nombre: producto.nombre,
+      tipo: "creacion",
+      cantidad: producto.unidades,
+      detalle: `Producto nuevo · precio $${producto.precio.toFixed(2)} · stock inicial ${producto.unidades} uds.`,
+      usuarioId: actor?.id,
+      usuarioNombre: actor?.nombre,
+      usuarioRol: actor?.rol,
+    });
+  } else {
+    const cambios = [];
+    if (prev.nombre !== producto.nombre) {
+      cambios.push(`Nombre: "${prev.nombre}" → "${producto.nombre}"`);
+    }
+    if (prev.precio !== producto.precio) {
+      cambios.push(`Precio: $${prev.precio.toFixed(2)} → $${producto.precio.toFixed(2)}`);
+    }
+    if (prev.unidades !== producto.unidades) {
+      cambios.push(`Unidades: ${prev.unidades} → ${producto.unidades}`);
+    }
+    if (cambios.length > 0) {
+      await registrarActividad({
+        barcode: producto.barcode,
+        nombre: producto.nombre,
+        tipo: "edicion",
+        cantidad: 0,
+        detalle: cambios.join(" · "),
+        usuarioId: actor?.id,
+        usuarioNombre: actor?.nombre,
+        usuarioRol: actor?.rol,
+      });
+    }
+  }
+
   return producto;
 }
 
 /**
  * @param {string} barcode
  * @param {number} delta
- * @param {{nombre?:string, rol?:string}} [actor]
+ * @param {{id?:string, nombre?:string, rol?:string}} [actor]
+ * @param {string} [tipo] "ajuste" (default, p. ej. los botones −1/+1/+10) o
+ *   "ingreso" (pantalla "Ingresar inventario") / "merma".
  */
-export async function addStock(barcode, delta, actor) {
+export async function addStock(barcode, delta, actor, tipo = "ajuste") {
   const key = normalizeBarcode(barcode);
   const prev = cache[key];
   if (!prev) throw new Error("El producto no existe");
@@ -215,6 +266,19 @@ export async function addStock(barcode, delta, actor) {
   } else {
     writeLocal();
   }
+
+  if (d !== 0) {
+    await registrarActividad({
+      barcode: key,
+      nombre: prev.nombre,
+      tipo,
+      cantidad: d,
+      usuarioId: actor?.id,
+      usuarioNombre: actor?.nombre,
+      usuarioRol: actor?.rol,
+    });
+  }
+
   return cache[key];
 }
 

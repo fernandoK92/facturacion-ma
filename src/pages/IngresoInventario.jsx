@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { useProducts } from "../hooks/useProducts";
 import { addStock } from "../lib/productStore";
-import { registrarMovimiento } from "../lib/movimientosStore";
 import { useAuth } from "../context/AuthContext";
 import { Card } from "../components/ui";
 
 export default function IngresoInventario({ onCerrar }) {
   const productos = useProducts();
-  const { nombre, user } = useAuth();
+  const { nombre, user, rol } = useAuth();
   const quien = nombre || "Sistema";
+  const actor = { id: user?.id, nombre: quien, rol };
 
   const [busca, setBusca] = useState("");
   const [abierto, setAbierto] = useState(""); // barcode del producto seleccionado
@@ -44,24 +44,12 @@ export default function IngresoInventario({ onCerrar }) {
     setError("");
     setOk("");
     try {
-      await addStock(p.barcode, n);
+      await addStock(p.barcode, n, actor, "ingreso");
+      setOk(`+${n} uds. de ${p.nombre} · ahora ${p.unidades + n}`);
     } catch (err) {
       setError("No se pudo actualizar el stock: " + err.message);
       setGuardando(false);
       return;
-    }
-    try {
-      await registrarMovimiento({
-        barcode: p.barcode,
-        nombre: p.nombre,
-        cantidad: n,
-        tipo: "ingreso",
-        usuarioId: user?.id,
-        usuarioNombre: quien,
-      });
-      setOk(`+${n} uds. de ${p.nombre} · ahora ${p.unidades + n}`);
-    } catch {
-      setOk(`Stock actualizado (+${n}). Nota: aún no se registra el historial — falta correr supabase/movimientos.sql.`);
     }
     setAbierto("");
     setCantidad("");

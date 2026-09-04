@@ -132,7 +132,6 @@ export default function ScanProduct() {
   }
 
   function startEdit() {
-    if (rol === "vendedor") return; // el vendedor no puede editar productos, solo escanear/ver
     setForm({
       nombre: found.nombre,
       precio: String(found.precio),
@@ -252,9 +251,7 @@ export default function ScanProduct() {
           ) : (
             <>
               <div style={s.actionRow}>
-                {rol !== "vendedor" && (
-                  <button style={s.secondaryBtn} onClick={startEdit}>✏️ Editar</button>
-                )}
+                <button style={s.secondaryBtn} onClick={startEdit}>✏️ Editar</button>
                 <button style={s.dangerGhostBtn} onClick={() => setConfirmDelete(true)}>
                   🗑 Eliminar
                 </button>
