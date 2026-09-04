@@ -1,0 +1,193 @@
+// Almacén de productos.
+//  - Si hay Supabase configurado (.env)  -> lee/escribe en la tabla `productos`.
+//  - Si no                               -> usa localStorage (modo offline / pruebas).
+//
+// Las LECTURAS son síncronas y salen de una caché en memoria (para que el
+// escaneo sea instantáneo). Las ESCRITURAS actualizan la caché de inmediato
+// (optimista) y luego persisten en segundo plano.
+
+import { supabase, supabaseReady } from "./supabase";
+
+const STORAGE_KEY = "facturacion-ma:productos:v1";
+const listeners = new Set();
+
+/** barcode -> { barcode, nombre, precio, unidades, createdAt, updatedAt } */
+let cache = {};
+
+function emit() {
+  listeners.forEach((fn) => fn());
+}
+
+export function subscribe(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+export function normalizeBarcode(code) {
+  return String(code ?? "").trim();
+}
+
+// ---------- persistencia local ----------
+function readLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+function writeLocal() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+  } catch (err) {
+    console.error("No se pudo guardar en localStorage", err);
+  }
+}
+
+// ---------- mapeo fila Supabase <-> objeto app ----------
+function rowToProduct(r) {
+  return {
+    barcode: r.barcode,
+    nombre: r.nombre ?? "",
+    precio: Number(r.precio) || 0,
+    unidades: Number(r.unidades) || 0,
+    createdAt: r.created_at ? Date.parse(r.created_at) : Date.now(),
+    updatedAt: r.updated_at ? Date.parse(r.updated_at) : Date.now(),
+  };
+}
+
+// ---------- hidratación ----------
+export async function hydrateProducts() {
+  if (supabaseReady) {
+    const { data, error } = await supabase.from("productos").select("*");
+    if (error) {
+      // Antes de iniciar sesión esto falla (acceso restringido): es esperado.
+      console.debug("productos: no disponible aún —", error.message);
+      return;
+    }
+    cache = Object.fromEntries(data.map((r) => [r.barcode, rowToProduct(r)]));
+  } else {
+    cache = readLocal();
+  }
+  emit();
+}
+
+// Carga inicial + sincronización en vivo entre dispositivos.
+if (supabaseReady) {
+  // Re-hidrata al iniciar sesión (INITIAL_SESSION / SIGNED_IN); limpia al salir.
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") {
+      cache = {};
+      emit();
+    } else {
+      hydrateProducts();
+    }
+  });
+  supabase
+    .channel("productos-cambios")
+    .on("postgres_changes", { event: "*", schema: "public", table: "productos" }, () =>
+      hydrateProducts()
+    )
+    .subscribe();
+} else {
+  hydrateProducts();
+}
+
+// ---------- LECTURAS (síncronas, desde caché) ----------
+export function getAllProducts() {
+  return Object.values(cache).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+}
+
+export function getProduct(barcode) {
+  const key = normalizeBarcode(barcode);
+  return key ? cache[key] ?? null : null;
+}
+
+export function getStats() {
+  const items = getAllProducts();
+  return {
+    total: items.length,
+    unidades: items.reduce((a, p) => a + p.unidades, 0),
+    valor: items.reduce((a, p) => a + p.unidades * p.precio, 0),
+    sinStock: items.filter((p) => p.unidades === 0).length,
+  };
+}
+
+// ---------- ESCRITURAS (optimistas + persistencia async) ----------
+export async function upsertProduct({ barcode, nombre, precio, unidades }) {
+  const key = normalizeBarcode(barcode);
+  if (!key) throw new Error("Código de barras vacío");
+
+  const now = Date.now();
+  const prev = cache[key];
+  const producto = {
+    barcode: key,
+    nombre: String(nombre ?? "").trim(),
+    precio: Number(precio) || 0,
+    unidades: Math.max(0, Math.round(Number(unidades) || 0)),
+    createdAt: prev?.createdAt ?? now,
+    updatedAt: now,
+  };
+  cache[key] = producto;
+  emit();
+
+  if (supabaseReady) {
+    const { error } = await supabase.from("productos").upsert({
+      barcode: producto.barcode,
+      nombre: producto.nombre,
+      precio: producto.precio,
+      unidades: producto.unidades,
+      updated_at: new Date(now).toISOString(),
+    });
+    if (error) {
+      await hydrateProducts();
+      throw new Error(error.message);
+    }
+  } else {
+    writeLocal();
+  }
+  return producto;
+}
+
+export async function addStock(barcode, delta) {
+  const key = normalizeBarcode(barcode);
+  const prev = cache[key];
+  if (!prev) throw new Error("El producto no existe");
+
+  const d = Math.round(Number(delta) || 0);
+  cache[key] = {
+    ...prev,
+    unidades: Math.max(0, prev.unidades + d),
+    updatedAt: Date.now(),
+  };
+  emit();
+
+  if (supabaseReady) {
+    const { error } = await supabase.rpc("add_stock", { p_barcode: key, p_delta: d });
+    if (error) {
+      await hydrateProducts();
+      throw new Error(error.message);
+    }
+  } else {
+    writeLocal();
+  }
+  return cache[key];
+}
+
+export async function deleteProduct(barcode) {
+  const key = normalizeBarcode(barcode);
+  if (!cache[key]) return;
+  delete cache[key];
+  emit();
+
+  if (supabaseReady) {
+    const { error } = await supabase.from("productos").delete().eq("barcode", key);
+    if (error) {
+      await hydrateProducts();
+      throw new Error(error.message);
+    }
+  } else {
+    writeLocal();
+  }
+}
