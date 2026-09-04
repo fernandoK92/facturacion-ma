@@ -10,7 +10,7 @@ import Usuarios from "./Usuarios";
 import { useProducts, useProductStats } from "../hooks/useProducts";
 import { useSales, useTodaySales } from "../hooks/useSales";
 import { KpiCard, Card, EmptyState } from "../components/ui";
-import { money, UMBRAL_STOCK_BAJO } from "../lib/format";
+import { money, UMBRAL_STOCK_BAJO, fechaHoraCorta } from "../lib/format";
 import { supabaseReady } from "../lib/supabase";
 import MigrateBanner from "../components/MigrateBanner";
 import { useAuth } from "../context/AuthContext";
@@ -22,9 +22,6 @@ const hoyTexto = () => {
   });
   return t.charAt(0).toUpperCase() + t.slice(1);
 };
-
-const horaCorta = (ts) =>
-  new Date(ts).toLocaleString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
 function Panel({ goTo }) {
   const productos = useProducts();
@@ -126,7 +123,7 @@ function Panel({ goTo }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={ps.rowName}>{v.cliente?.nombre || "Consumidor final"}</div>
                   <div style={ps.rowSub}>
-                    {horaCorta(v.fecha)} · {v.metodoPago}
+                    {fechaHoraCorta(v.fecha)} · {v.metodoPago}
                     {v.usuarioNombre && ` · ${v.usuarioNombre}`}
                   </div>
                 </div>

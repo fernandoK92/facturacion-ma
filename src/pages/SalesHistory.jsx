@@ -1,13 +1,8 @@
 import { useState } from "react";
 import { useSales, useTodaySales } from "../hooks/useSales";
 import { PageHeader, Card, KpiCard, EmptyState } from "../components/ui";
-import { money } from "../lib/format";
+import { money, fechaHoraCorta, fechaHoraLarga } from "../lib/format";
 import { ETIQUETA_ROL } from "../lib/permisos";
-
-const fmtFecha = (ts) =>
-  new Date(ts).toLocaleString("es", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-  });
 
 export default function SalesHistory() {
   const ventas = useSales();
@@ -48,7 +43,7 @@ export default function SalesHistory() {
                       {v.cliente?.nombre || "Consumidor final"}
                     </div>
                     <div style={{ fontSize: 11, color: "#8a8fa8" }}>
-                      {v.id} · {fmtFecha(v.fecha)} · {v.metodoPago}
+                      {v.id} · {fechaHoraCorta(v.fecha)} · {v.metodoPago}
                       {v.usuarioNombre && (
                         <> · {v.usuarioNombre}{v.usuarioRol && ` (${ETIQUETA_ROL[v.usuarioRol] ?? v.usuarioRol})`}</>
                       )}
@@ -64,6 +59,7 @@ export default function SalesHistory() {
 
                 {open && (
                   <div style={s.detail}>
+                    <div style={s.detailFecha}>📅 {fechaHoraLarga(v.fecha)}</div>
                     {v.items.map((it) => (
                       <div key={it.barcode} style={s.detailRow}>
                         <span style={{ flex: 1 }}>
@@ -101,6 +97,7 @@ const s = {
     padding: "12px 18px", background: "none", border: "none", cursor: "pointer",
   },
   detail: { padding: "0 18px 14px 18px", background: "#fafbfc" },
+  detailFecha: { fontSize: 11, color: "#5a5e78", fontWeight: 600, padding: "10px 0 6px" },
   detailRow: {
     display: "flex", justifyContent: "space-between", fontSize: 12, color: "#1a1c2e",
     padding: "4px 0",

@@ -4,7 +4,7 @@ import { useMovimientos } from "../hooks/useMovimientos";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { upsertProduct, deleteProduct } from "../lib/productStore";
 import { Card, KpiCard, EmptyState } from "../components/ui";
-import { money, UMBRAL_STOCK_BAJO } from "../lib/format";
+import { money, UMBRAL_STOCK_BAJO, fechaHoraCorta } from "../lib/format";
 import { ETIQUETA_ROL } from "../lib/permisos";
 import IngresoInventario from "./IngresoInventario";
 
@@ -14,8 +14,11 @@ function porTexto(p) {
   return `${p.actualizadoPorNombre}${rol}`;
 }
 
-const fechaCorta = (ts) =>
-  new Date(ts).toLocaleString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+/** Línea "quién y cuándo" para mostrar bajo cada producto. */
+function porYFecha(p) {
+  const quien = p.actualizadoPorNombre ? `Por: ${porTexto(p)} · ` : "";
+  return `${quien}${fechaHoraCorta(p.updatedAt)}`;
+}
 
 const estadoDe = (u) => (u === 0 ? "sin" : u <= UMBRAL_STOCK_BAJO ? "bajo" : "ok");
 
@@ -206,9 +209,7 @@ export default function InventoryDashboard() {
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={s.pcardName}>{p.nombre}</div>
                             <div style={s.pcardCode}>{p.barcode}</div>
-                            {p.actualizadoPorNombre && (
-                              <div style={s.pcardBy}>Por: {porTexto(p)}</div>
-                            )}
+                            <div style={s.pcardBy}>{porYFecha(p)}</div>
                           </div>
                           <span style={{ ...s.badge, background: BADGE[est].bg, color: BADGE[est].fg }}>
                             {BADGE[est].label}
@@ -256,8 +257,9 @@ export default function InventoryDashboard() {
                           <Fragment key={p.barcode}>
                             <tr>
                               <td style={{ ...s.td, fontFamily: "monospace", fontSize: 11, color: "#8a8fa8" }}>{p.barcode}</td>
-                              <td style={{ ...s.td, fontWeight: 500 }} title={porTexto(p) ? `Actualizado por ${porTexto(p)}` : undefined}>
+                              <td style={{ ...s.td, fontWeight: 500 }}>
                                 {p.nombre}
+                                <div style={s.tdSub}>{porYFecha(p)}</div>
                               </td>
                               <td style={{ ...s.td, textAlign: "right" }}>{money(p.precio)}</td>
                               <td style={{ ...s.td, textAlign: "right", fontWeight: 600, color: BADGE[est].fg }}>{p.unidades}</td>
@@ -328,7 +330,7 @@ export default function InventoryDashboard() {
                   <div key={m.id} style={s.movRow}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1c2e" }}>{m.nombre}</div>
-                      <div style={{ fontSize: 11, color: "#8a8fa8" }}>{fechaCorta(m.fecha)} · {m.usuarioNombre}</div>
+                      <div style={{ fontSize: 11, color: "#8a8fa8" }}>{fechaHoraCorta(m.fecha)} · {m.usuarioNombre}</div>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#2e7d32" }}>+{m.cantidad} uds.</div>
                   </div>
@@ -363,6 +365,7 @@ const s = {
     letterSpacing: "0.04em", whiteSpace: "nowrap",
   },
   td: { padding: "12px 12px", fontSize: 13, borderTop: "0.5px solid #f0f1f5", color: "#1a1c2e" },
+  tdSub: { fontSize: 10, color: "#a0a3b5", fontWeight: 400, marginTop: 2 },
   badge: {
     display: "inline-flex", alignItems: "center", padding: "3px 8px", borderRadius: 20,
     fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",

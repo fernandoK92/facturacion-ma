@@ -10,6 +10,7 @@ import {
 } from "../lib/productStore";
 import { useAuth } from "../context/AuthContext";
 import { ETIQUETA_ROL } from "../lib/permisos";
+import { fechaHoraCorta } from "../lib/format";
 import CameraScanner from "../components/CameraScanner";
 
 const EMPTY_FORM = { nombre: "", precio: "", unidades: "" };
@@ -215,12 +216,17 @@ export default function ScanProduct() {
             </div>
           </div>
 
-          {found.actualizadoPorNombre && (
-            <div style={s.attribution}>
-              Últ. modificación: <strong>{found.actualizadoPorNombre}</strong>
-              {found.actualizadoPorRol && ` (${ETIQUETA_ROL[found.actualizadoPorRol] ?? found.actualizadoPorRol})`}
-            </div>
-          )}
+          <div style={s.attribution}>
+            Últ. modificación:
+            {found.actualizadoPorNombre && (
+              <>
+                {" "}<strong>{found.actualizadoPorNombre}</strong>
+                {found.actualizadoPorRol && ` (${ETIQUETA_ROL[found.actualizadoPorRol] ?? found.actualizadoPorRol})`}
+                {" · "}
+              </>
+            )}
+            {fechaHoraCorta(found.updatedAt)}
+          </div>
 
           <div style={s.stepper}>
             <button style={s.stepBtn} onClick={() => quickStock(-1)}>−1</button>
