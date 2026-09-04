@@ -29,7 +29,7 @@ export default function SalesHistory() {
         <EmptyState
           icon="🧾"
           title="Aún no hay ventas"
-          hint="Cuando cobres en la Terminal POS, las ventas aparecerán aquí."
+          hint="Cuando cobres en Ventas, las ventas aparecerán aquí."
         />
       ) : (
         <Card title="Ventas" subtitle={`${ventas.length} registros`}>

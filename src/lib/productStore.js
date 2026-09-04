@@ -237,7 +237,7 @@ export async function upsertProduct({ barcode, nombre, precio, unidades, categor
  * @param {string} [tipo] "ajuste" (default, p. ej. los botones −1/+1/+10) o
  *   "ingreso" (pantalla "Ingresar inventario") / "merma".
  * @param {boolean} [registrarLog] en false no deja movimiento propio —
- *   lo usa el checkout de Terminal POS, que ya deja UN registro "venta"
+ *   lo usa el checkout de Ventas, que ya deja UN registro "venta"
  *   con todo el detalle en vez de uno suelto por cada producto vendido.
  */
 export async function addStock(barcode, delta, actor, tipo = "ajuste", registrarLog = true) {

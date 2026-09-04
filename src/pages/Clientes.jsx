@@ -7,7 +7,7 @@ export default function Clientes() {
       <EmptyState
         icon="👥"
         title="En construcción"
-        hint="Por ahora los datos del cliente se capturan al cobrar en la Terminal POS. El directorio de clientes llega con la base de datos."
+        hint="Por ahora los datos del cliente se capturan al cobrar en Ventas. El directorio de clientes llega con la base de datos."
       />
     </div>
   );

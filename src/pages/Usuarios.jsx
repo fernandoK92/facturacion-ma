@@ -233,7 +233,7 @@ export default function Usuarios() {
       )}
 
       <p style={s.nota}>
-        <strong>Vendedor</strong> solo ve Escanear y Terminal POS. <strong>Administrador</strong> y{" "}
+        <strong>Vendedor</strong> solo ve Escanear y Ventas. <strong>Administrador</strong> y{" "}
         <strong>Propietaria</strong> ven todo. <strong>Desactivar</strong> bloquea el acceso sin borrar
         el historial; <strong>Eliminar</strong> quita la cuenta por completo. El ✏️ permite cambiar
         nombre, correo y contraseña. Para crear una cuenta, la persona se registra en la pantalla de

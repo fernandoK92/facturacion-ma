@@ -64,7 +64,7 @@ quedan en la nube. Después ese aviso desaparece solo.
 ## Login y roles (Supabase Auth)
 
 Roles: **admin** y **propietaria** ven todo; **vendedor** solo ve *Escanear* y
-*Terminal POS*.
+*Ventas*.
 
 ### 1. Correr el SQL de auth
 

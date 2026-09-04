@@ -38,7 +38,7 @@ export default function SalesAnalytics() {
         <EmptyState
           icon="📈"
           title="Todavía no hay datos"
-          hint="Registra ventas en la Terminal POS para ver el análisis."
+          hint="Cobra alguna venta para ver el análisis."
         />
       ) : (
         <>

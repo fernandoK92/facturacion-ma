@@ -1,4 +1,4 @@
-// Guarda en localStorage la venta que se está armando en Terminal POS
+// Guarda en localStorage la venta que se está armando en Ventas
 // (carrito, cliente, método de pago), para que sobreviva si se recarga
 // la página o se navega a otra pantalla sin querer, antes de cobrar.
 // Es solo un "borrador" del navegador — no tiene nada que ver con el

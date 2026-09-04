@@ -94,7 +94,7 @@ import { ETIQUETA_ROL } from "../lib/permisos";
 const NAV_ITEMS = [
   { Icon: TbLayoutDashboard, label: "Dashboard", section: "main" },
   { Icon: TbBarcode, label: "Escanear", section: "main" },
-  { Icon: TbCashRegister, label: "Terminal POS", section: "main" },
+  { Icon: TbCashRegister, label: "Ventas", section: "main" },
   { Icon: TbPackages, label: "Inventario", section: "main" },
   { Icon: TbReceipt, label: "Historial de ventas", section: "main" },
   { Icon: TbChartBar, label: "Análisis de ventas", section: "reports" },
@@ -146,7 +146,7 @@ export default function Sidebar({ activeNav, setActiveNav, permitidas, open = fa
       <div style={{ flex: 1 }} />
 
       <div className="sidebar-bottom">
-        <button className="sidebar-new-sale-btn" onClick={() => go("Terminal POS")}>
+        <button className="sidebar-new-sale-btn" onClick={() => go("Ventas")}>
           <span className="sidebar-plus">+</span> Nueva Venta
         </button>
 

@@ -109,9 +109,9 @@ function Panel({ goTo }) {
               <EmptyState
                 icon="🧾"
                 title="Aún no hay ventas"
-                hint="Cobra en la Terminal POS para empezar."
+                hint="Cobra en Ventas para empezar."
                 action={
-                  <button style={ps.cta} onClick={() => goTo("Terminal POS")}>
+                  <button style={ps.cta} onClick={() => goTo("Ventas")}>
                     Nueva venta
                   </button>
                 }
@@ -161,7 +161,7 @@ const ps = {
 const ROUTES = {
   Dashboard: null, // Panel
   Escanear: ScanProduct,
-  "Terminal POS": NewSale,
+  "Ventas": NewSale,
   Inventario: InventoryDashboard,
   "Historial de ventas": SalesHistory,
   "Análisis de ventas": SalesAnalytics,
@@ -238,7 +238,7 @@ export default function Dashboard() {
               {supabaseReady ? "Supabase" : "Local"}
             </span>
             <button
-              onClick={() => setActiveNav("Terminal POS")}
+              onClick={() => setActiveNav("Ventas")}
               style={{ padding: "7px 16px", background: "#1a237e", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
             >
               + Nueva venta
@@ -250,9 +250,9 @@ export default function Dashboard() {
           {ActivePage ? <ActivePage /> : <Panel goTo={setActiveNav} />}
         </div>
 
-        {seccionActual !== "Terminal POS" && (
+        {seccionActual !== "Ventas" && (
           <button
-            onClick={() => setActiveNav("Terminal POS")}
+            onClick={() => setActiveNav("Ventas")}
             title="Nueva venta"
             aria-label="Nueva venta"
             style={{ position: "fixed", bottom: 28, right: 28, width: 52, height: 52, borderRadius: "50%", background: "#1a237e", color: "white", border: "none", fontSize: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 20px rgba(26,35,126,0.35)", zIndex: 100 }}

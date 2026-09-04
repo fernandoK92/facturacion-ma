@@ -12,7 +12,7 @@ export const ETIQUETA_ROL = {
 const TODO = [
   "Dashboard",
   "Escanear",
-  "Terminal POS",
+  "Ventas",
   "Inventario",
   "Historial de ventas",
   "Análisis de ventas",
@@ -23,7 +23,7 @@ const TODO = [
 export const PERMISOS = {
   admin: TODO,
   propietaria: TODO,
-  vendedor: ["Escanear", "Terminal POS"],
+  vendedor: ["Escanear", "Ventas"],
 };
 
 /** Lista de secciones permitidas para un rol (vacío si el rol es desconocido). */
@@ -33,7 +33,7 @@ export function seccionesPermitidas(rol) {
 
 /** Sección a la que cae el usuario al entrar, según su rol. */
 export function seccionInicial(rol) {
-  return seccionesPermitidas(rol)[0] ?? "Terminal POS";
+  return seccionesPermitidas(rol)[0] ?? "Ventas";
 }
 
 export function puedeVer(rol, seccion) {
