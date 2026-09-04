@@ -140,6 +140,7 @@ export async function recordSale(venta) {
       nombre: i.nombre,
       precio: Number(i.precio) || 0,
       cantidad: Math.max(1, Math.round(Number(i.cantidad) || 1)),
+      tipo: i.tipo || "producto",
     })),
     usuarioId: venta.usuario?.id || null,
     usuarioNombre: venta.usuario?.nombre || "",

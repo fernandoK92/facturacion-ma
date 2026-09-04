@@ -1,15 +1,19 @@
 import { useMemo, useRef, useState } from "react";
 import { useBarcodeScanner } from "../hooks/useBarcodeScanner";
 import { useProducts } from "../hooks/useProducts";
-import { getProduct, addStock, normalizeBarcode } from "../lib/productStore";
+import { getProduct, addStock, normalizeBarcode, generarCodigoInterno } from "../lib/productStore";
 import { recordSale } from "../lib/salesStore";
 import { money } from "../lib/format";
 import { useAuth } from "../context/AuthContext";
 import { ETIQUETA_ROL } from "../lib/permisos";
 import CameraScanner from "../components/CameraScanner";
+import FrutasModal from "../components/FrutasModal";
+import RecargaModal from "../components/RecargaModal";
+import BusModal from "../components/BusModal";
 
 const EMPTY_CLIENTE = { nombre: "", documento: "", telefono: "" };
 const METODOS = ["Efectivo", "Tarjeta", "Transferencia"];
+const TIPO_ICON = { recarga: "📱 ", bus: "🚌 " };
 
 export default function NewSale() {
   const { user, nombre, rol } = useAuth();
@@ -28,6 +32,7 @@ export default function NewSale() {
   const [confirmPay, setConfirmPay] = useState(false);
   const [cobrando, setCobrando] = useState(false);
   const [camaraAbierta, setCamaraAbierta] = useState(false);
+  const [modal, setModal] = useState(null); // null | "frutas" | "recarga" | "bus"
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
 
@@ -62,7 +67,18 @@ export default function NewSale() {
     flash(`+ ${prod.nombre}`);
   }
 
-  useBarcodeScanner(addToCart, { enabled: !confirmPay && !camaraAbierta });
+  useBarcodeScanner(addToCart, { enabled: !confirmPay && !camaraAbierta && !modal });
+
+  /** Agrega una línea que no es un producto de inventario (recarga, bus…). */
+  function addServiceLine({ nombre, precio, tipo, codigo }) {
+    const prefix = tipo === "bus" ? "BUS" : "REC";
+    const barcode = codigo
+      ? `${prefix}-${codigo}-${Date.now().toString(36).toUpperCase()}`
+      : generarCodigoInterno(prefix);
+    setCart((prev) => [...prev, { barcode, nombre, precio: Number(precio) || 0, cantidad: 1, tipo }]);
+    flash(`+ ${nombre}`);
+    setModal(null);
+  }
 
   function setCantidad(barcode, cantidad) {
     setCart((prev) =>
@@ -89,9 +105,12 @@ export default function NewSale() {
     const montoVenta = total;
     try {
       await recordSale({ items: cart, total: montoVenta, metodoPago: metodo, cliente, usuario: actor });
-      // Descontamos del inventario (ignoramos productos que ya no existan)
+      // Descontamos del inventario solo en líneas de producto real
+      // (recargas y bus no tienen stock que descontar).
       await Promise.all(
-        cart.map((l) => addStock(l.barcode, -l.cantidad, actor).catch(() => {}))
+        cart
+          .filter((l) => (l.tipo ?? "producto") === "producto")
+          .map((l) => addStock(l.barcode, -l.cantidad, actor).catch(() => {}))
       );
       flash(`Venta registrada · ${money(montoVenta)}`);
       cancelarVenta();
@@ -144,6 +163,18 @@ export default function NewSale() {
             </button>
           </form>
 
+          <div style={s.tilesRow}>
+            <button style={s.tile} onClick={() => setModal("frutas")}>
+              <span style={s.tileIcon}>🍎</span> Frutas
+            </button>
+            <button style={s.tile} onClick={() => setModal("recarga")}>
+              <span style={s.tileIcon}>📱</span> Recargas
+            </button>
+            <button style={s.tile} onClick={() => setModal("bus")}>
+              <span style={s.tileIcon}>🚌</span> Recarga bus
+            </button>
+          </div>
+
           {cart.length === 0 ? (
             <div style={s.empty}>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#1a1c2e" }}>
@@ -161,7 +192,7 @@ export default function NewSale() {
                 return (
                   <div key={l.barcode} style={s.cartRow}>
                     <div style={s.cartInfo}>
-                      <div style={s.cartName}>{l.nombre}</div>
+                      <div style={s.cartName}>{TIPO_ICON[l.tipo] ?? ""}{l.nombre}</div>
                       <div style={s.cartCode}>
                         {money(l.precio)} c/u
                         {sinStock && (
@@ -311,6 +342,16 @@ export default function NewSale() {
         <CameraScanner onDetected={addToCart} onClose={() => setCamaraAbierta(false)} />
       )}
 
+      {modal === "frutas" && (
+        <FrutasModal onAdd={(barcode) => { addToCart(barcode); setModal(null); }} onClose={() => setModal(null)} />
+      )}
+      {modal === "recarga" && (
+        <RecargaModal onAdd={addServiceLine} onClose={() => setModal(null)} />
+      )}
+      {modal === "bus" && (
+        <BusModal onAdd={addServiceLine} onClose={() => setModal(null)} />
+      )}
+
       {toast && <div style={s.toast}>{toast}</div>}
     </div>
   );
@@ -356,6 +397,14 @@ const s = {
     fontSize: 12, color: "#5a5e78", background: "#f4f5f9", border: "0.5px solid #e8eaf0",
     borderRadius: 8, padding: "7px 12px", whiteSpace: "nowrap",
   },
+
+  tilesRow: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 },
+  tile: {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+    padding: "12px 6px", fontSize: 13, fontWeight: 600, color: "#1a1c2e",
+    background: "#fff", border: "0.5px solid #e8eaf0", borderRadius: 10, cursor: "pointer",
+  },
+  tileIcon: { fontSize: 16 },
 
   empty: {
     background: "#fff", border: "2px dashed #d0d3e0", borderRadius: 12,

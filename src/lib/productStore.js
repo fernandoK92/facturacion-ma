@@ -55,6 +55,7 @@ function rowToProduct(r) {
     nombre: r.nombre ?? "",
     precio: Number(r.precio) || 0,
     unidades: Number(r.unidades) || 0,
+    categoria: r.categoria ?? "",
     createdAt: r.created_at ? Date.parse(r.created_at) : Date.now(),
     updatedAt: r.updated_at ? Date.parse(r.updated_at) : Date.now(),
     creadoPorNombre: r.creado_por_nombre ?? "",
@@ -62,6 +63,11 @@ function rowToProduct(r) {
     actualizadoPorNombre: r.actualizado_por_nombre ?? "",
     actualizadoPorRol: r.actualizado_por_rol ?? "",
   };
+}
+
+/** Genera un código interno único para productos sin código de barras real (frutas, etc.). */
+export function generarCodigoInterno(prefijo) {
+  return `${prefijo}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 }
 
 // ---------- hidratación ----------
@@ -123,10 +129,10 @@ export function getStats() {
 
 // ---------- ESCRITURAS (optimistas + persistencia async) ----------
 /**
- * @param {{barcode:string,nombre:string,precio:number,unidades:number}} data
+ * @param {{barcode:string,nombre:string,precio:number,unidades:number,categoria?:string}} data
  * @param {{nombre?:string, rol?:string}} [actor] quién hace el cambio (opcional)
  */
-export async function upsertProduct({ barcode, nombre, precio, unidades }, actor) {
+export async function upsertProduct({ barcode, nombre, precio, unidades, categoria }, actor) {
   const key = normalizeBarcode(barcode);
   if (!key) throw new Error("Código de barras vacío");
 
@@ -138,6 +144,7 @@ export async function upsertProduct({ barcode, nombre, precio, unidades }, actor
     nombre: String(nombre ?? "").trim(),
     precio: Number(precio) || 0,
     unidades: Math.max(0, Math.round(Number(unidades) || 0)),
+    categoria: categoria ?? prev?.categoria ?? "",
     createdAt: prev?.createdAt ?? now,
     updatedAt: now,
     creadoPorNombre: esNuevo ? actor?.nombre ?? "" : prev?.creadoPorNombre ?? "",
@@ -154,6 +161,7 @@ export async function upsertProduct({ barcode, nombre, precio, unidades }, actor
       nombre: producto.nombre,
       precio: producto.precio,
       unidades: producto.unidades,
+      categoria: producto.categoria,
       updated_at: new Date(now).toISOString(),
       actualizado_por_nombre: producto.actualizadoPorNombre || null,
       actualizado_por_rol: producto.actualizadoPorRol || null,
