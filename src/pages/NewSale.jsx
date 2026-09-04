@@ -4,11 +4,17 @@ import { useProducts } from "../hooks/useProducts";
 import { getProduct, addStock, normalizeBarcode } from "../lib/productStore";
 import { recordSale } from "../lib/salesStore";
 import { money } from "../lib/format";
+import { useAuth } from "../context/AuthContext";
+import { ETIQUETA_ROL } from "../lib/permisos";
+import CameraScanner from "../components/CameraScanner";
 
 const EMPTY_CLIENTE = { nombre: "", documento: "", telefono: "" };
 const METODOS = ["Efectivo", "Tarjeta", "Transferencia"];
 
 export default function NewSale() {
+  const { user, nombre, rol } = useAuth();
+  const actor = { id: user?.id, nombre: nombre || "Sistema", rol };
+
   const productos = useProducts();
   const stockMap = useMemo(
     () => new Map(productos.map((p) => [p.barcode, p.unidades])),
@@ -21,6 +27,7 @@ export default function NewSale() {
   const [manual, setManual] = useState("");
   const [confirmPay, setConfirmPay] = useState(false);
   const [cobrando, setCobrando] = useState(false);
+  const [camaraAbierta, setCamaraAbierta] = useState(false);
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
 
@@ -37,6 +44,7 @@ export default function NewSale() {
     const c = normalizeBarcode(rawCode);
     if (!c) return;
     setManual("");
+    setCamaraAbierta(false);
     const prod = getProduct(c);
     if (!prod) {
       flash(`Código ${c} no está registrado`);
@@ -54,7 +62,7 @@ export default function NewSale() {
     flash(`+ ${prod.nombre}`);
   }
 
-  useBarcodeScanner(addToCart, { enabled: !confirmPay });
+  useBarcodeScanner(addToCart, { enabled: !confirmPay && !camaraAbierta });
 
   function setCantidad(barcode, cantidad) {
     setCart((prev) =>
@@ -80,10 +88,10 @@ export default function NewSale() {
     setCobrando(true);
     const montoVenta = total;
     try {
-      await recordSale({ items: cart, total: montoVenta, metodoPago: metodo, cliente });
+      await recordSale({ items: cart, total: montoVenta, metodoPago: metodo, cliente, usuario: actor });
       // Descontamos del inventario (ignoramos productos que ya no existan)
       await Promise.all(
-        cart.map((l) => addStock(l.barcode, -l.cantidad).catch(() => {}))
+        cart.map((l) => addStock(l.barcode, -l.cantidad, actor).catch(() => {}))
       );
       flash(`Venta registrada · ${money(montoVenta)}`);
       cancelarVenta();
@@ -103,9 +111,14 @@ export default function NewSale() {
     <div style={s.wrap}>
       <style>{responsiveCss}</style>
 
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={s.title}>Nueva venta</h1>
-        <p style={s.sub}>Escanea los productos con el lector USB y cobra.</p>
+      <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={s.title}>Nueva venta</h1>
+          <p style={s.sub}>Escanea los productos con el lector USB o la cámara, y cobra.</p>
+        </div>
+        <div style={s.cajeroBadge}>
+          Cajero: <strong>{actor.nombre}</strong>{rol && ` · ${ETIQUETA_ROL[rol] ?? rol}`}
+        </div>
       </div>
 
       <div className="pos-layout" style={s.layout}>
@@ -121,6 +134,14 @@ export default function NewSale() {
               onChange={(e) => setManual(e.target.value)}
             />
             <button type="submit" style={s.scanBtn}>Agregar</button>
+            <button
+              type="button"
+              style={s.camBtn}
+              onClick={() => setCamaraAbierta(true)}
+              title="Escanear con cámara"
+            >
+              📷
+            </button>
           </form>
 
           {cart.length === 0 ? (
@@ -286,6 +307,10 @@ export default function NewSale() {
         </div>
       </div>
 
+      {camaraAbierta && (
+        <CameraScanner onDetected={addToCart} onClose={() => setCamaraAbierta(false)} />
+      )}
+
       {toast && <div style={s.toast}>{toast}</div>}
     </div>
   );
@@ -322,6 +347,14 @@ const s = {
   scanBtn: {
     padding: "10px 16px", fontSize: 13, fontWeight: 600, background: "#1a237e",
     color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0,
+  },
+  camBtn: {
+    width: 40, height: 40, flexShrink: 0, fontSize: 17, background: "#eef0fb",
+    border: "0.5px solid #d7dbf5", borderRadius: 8, cursor: "pointer",
+  },
+  cajeroBadge: {
+    fontSize: 12, color: "#5a5e78", background: "#f4f5f9", border: "0.5px solid #e8eaf0",
+    borderRadius: 8, padding: "7px 12px", whiteSpace: "nowrap",
   },
 
   empty: {

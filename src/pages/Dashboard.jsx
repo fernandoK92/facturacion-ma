@@ -125,7 +125,10 @@ function Panel({ goTo }) {
               <div key={v.id} style={ps.row}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={ps.rowName}>{v.cliente?.nombre || "Consumidor final"}</div>
-                  <div style={ps.rowSub}>{horaCorta(v.fecha)} · {v.metodoPago}</div>
+                  <div style={ps.rowSub}>
+                    {horaCorta(v.fecha)} · {v.metodoPago}
+                    {v.usuarioNombre && ` · ${v.usuarioNombre}`}
+                  </div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#1a237e" }}>{money(v.total)}</div>
               </div>

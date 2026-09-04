@@ -8,10 +8,16 @@ import {
   deleteProduct,
   normalizeBarcode,
 } from "../lib/productStore";
+import { useAuth } from "../context/AuthContext";
+import { ETIQUETA_ROL } from "../lib/permisos";
+import CameraScanner from "../components/CameraScanner";
 
 const EMPTY_FORM = { nombre: "", precio: "", unidades: "" };
 
 export default function ScanProduct() {
+  const { user, nombre, rol } = useAuth();
+  const actor = { id: user?.id, nombre: nombre || "Sistema", rol };
+
   const productos = useProducts();
   const stats = useProductStats();
 
@@ -23,11 +29,12 @@ export default function ScanProduct() {
   const [toast, setToast] = useState("");
   const [manual, setManual] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [camaraAbierta, setCamaraAbierta] = useState(false);
 
   const nombreRef = useRef(null);
   const toastTimer = useRef(null);
 
-  const scanningEnabled = mode === "idle" || mode === "found";
+  const scanningEnabled = (mode === "idle" || mode === "found") && !camaraAbierta;
 
   function flash(msg) {
     setToast(msg);
@@ -41,6 +48,7 @@ export default function ScanProduct() {
     setCode(c);
     setManual("");
     setConfirmDelete(false);
+    setCamaraAbierta(false);
 
     const existing = getProduct(c);
     if (existing) {
@@ -96,12 +104,15 @@ export default function ScanProduct() {
       return;
     }
     try {
-      await upsertProduct({
-        barcode: code,
-        nombre: form.nombre,
-        precio: form.precio,
-        unidades: form.unidades,
-      });
+      await upsertProduct(
+        {
+          barcode: code,
+          nombre: form.nombre,
+          precio: form.precio,
+          unidades: form.unidades,
+        },
+        actor
+      );
       flash(mode === "edit" ? "Cambios guardados" : "Producto agregado");
       reset();
     } catch (err) {
@@ -111,7 +122,7 @@ export default function ScanProduct() {
 
   async function quickStock(delta) {
     try {
-      const updated = await addStock(code, delta);
+      const updated = await addStock(code, delta, actor);
       setFound(updated);
       flash(`Stock: ${updated.unidades} uds.`);
     } catch (err) {
@@ -132,11 +143,16 @@ export default function ScanProduct() {
     <div style={s.wrap}>
       <style>{responsiveCss}</style>
 
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={s.title}>Escanear producto</h1>
-        <p style={s.sub}>
-          Escanea con el lector USB y asígnale nombre, precio y unidades.
-        </p>
+      <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={s.title}>Escanear producto</h1>
+          <p style={s.sub}>
+            Escanea con el lector USB o la cámara, y asígnale nombre, precio y unidades.
+          </p>
+        </div>
+        <div style={s.actorBadge}>
+          {nombre || "Sistema"}{rol && ` · ${ETIQUETA_ROL[rol] ?? rol}`}
+        </div>
       </div>
 
       {/* KPIs rápidos */}
@@ -159,6 +175,14 @@ export default function ScanProduct() {
               Dispara el lector USB sobre cualquier producto
             </div>
           </div>
+
+          <button
+            type="button"
+            style={s.camScanBtn}
+            onClick={() => setCamaraAbierta(true)}
+          >
+            📷 Escanear con cámara
+          </button>
 
           <form onSubmit={submitManual} style={s.manualRow}>
             <input
@@ -190,6 +214,13 @@ export default function ScanProduct() {
               </div>
             </div>
           </div>
+
+          {found.actualizadoPorNombre && (
+            <div style={s.attribution}>
+              Últ. modificación: <strong>{found.actualizadoPorNombre}</strong>
+              {found.actualizadoPorRol && ` (${ETIQUETA_ROL[found.actualizadoPorRol] ?? found.actualizadoPorRol})`}
+            </div>
+          )}
 
           <div style={s.stepper}>
             <button style={s.stepBtn} onClick={() => quickStock(-1)}>−1</button>
@@ -302,6 +333,10 @@ export default function ScanProduct() {
         </div>
       )}
 
+      {camaraAbierta && (
+        <CameraScanner onDetected={handleCode} onClose={() => setCamaraAbierta(false)} />
+      )}
+
       {toast && <div style={s.toast}>{toast}</div>}
     </div>
   );
@@ -342,6 +377,19 @@ const s = {
     border: "2px dashed #d0d3e0", borderRadius: 12, marginBottom: 14,
   },
   scanIcon: { fontSize: 30, letterSpacing: 2, color: "#1a237e", marginBottom: 8 },
+
+  camScanBtn: {
+    width: "100%", padding: "13px", fontSize: 14, fontWeight: 600, background: "#eef0fb",
+    color: "#1a237e", border: "0.5px solid #d7dbf5", borderRadius: 10, cursor: "pointer",
+    marginBottom: 10,
+  },
+  actorBadge: {
+    fontSize: 12, color: "#5a5e78", background: "#f4f5f9", border: "0.5px solid #e8eaf0",
+    borderRadius: 8, padding: "7px 12px", whiteSpace: "nowrap",
+  },
+  attribution: {
+    fontSize: 12, color: "#8a8fa8", marginBottom: 12, marginTop: -6,
+  },
 
   manualRow: { display: "flex", gap: 8 },
   manualInput: {

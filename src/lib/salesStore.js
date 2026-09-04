@@ -48,6 +48,8 @@ function rowToSale(r) {
     metodoPago: r.metodo_pago ?? "Efectivo",
     cliente: r.cliente ?? {},
     items: Array.isArray(r.items) ? r.items : [],
+    usuarioNombre: r.usuario_nombre ?? "",
+    usuarioRol: r.usuario_rol ?? "",
   };
 }
 function saleToRow(v) {
@@ -58,6 +60,9 @@ function saleToRow(v) {
     metodo_pago: v.metodoPago,
     cliente: v.cliente,
     items: v.items,
+    usuario_id: v.usuarioId || null,
+    usuario_nombre: v.usuarioNombre || null,
+    usuario_rol: v.usuarioRol || null,
   };
 }
 
@@ -119,6 +124,7 @@ export function getTodayStats() {
  *   items: {barcode:string,nombre:string,precio:number,cantidad:number}[],
  *   total:number, metodoPago:string,
  *   cliente:{nombre?:string,documento?:string,telefono?:string},
+ *   usuario?: {id?:string, nombre?:string, rol?:string},
  * }} venta
  */
 export async function recordSale(venta) {
@@ -135,6 +141,9 @@ export async function recordSale(venta) {
       precio: Number(i.precio) || 0,
       cantidad: Math.max(1, Math.round(Number(i.cantidad) || 1)),
     })),
+    usuarioId: venta.usuario?.id || null,
+    usuarioNombre: venta.usuario?.nombre || "",
+    usuarioRol: venta.usuario?.rol || "",
   };
 
   cache = [registro, ...cache];

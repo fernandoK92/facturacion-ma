@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSales, useTodaySales } from "../hooks/useSales";
 import { PageHeader, Card, KpiCard, EmptyState } from "../components/ui";
 import { money } from "../lib/format";
+import { ETIQUETA_ROL } from "../lib/permisos";
 
 const fmtFecha = (ts) =>
   new Date(ts).toLocaleString("es", {
@@ -48,6 +49,9 @@ export default function SalesHistory() {
                     </div>
                     <div style={{ fontSize: 11, color: "#8a8fa8" }}>
                       {v.id} · {fmtFecha(v.fecha)} · {v.metodoPago}
+                      {v.usuarioNombre && (
+                        <> · {v.usuarioNombre}{v.usuarioRol && ` (${ETIQUETA_ROL[v.usuarioRol] ?? v.usuarioRol})`}</>
+                      )}
                     </div>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1a237e" }}>

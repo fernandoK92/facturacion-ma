@@ -5,7 +5,14 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import { upsertProduct, deleteProduct } from "../lib/productStore";
 import { Card, KpiCard, EmptyState } from "../components/ui";
 import { money, UMBRAL_STOCK_BAJO } from "../lib/format";
+import { ETIQUETA_ROL } from "../lib/permisos";
 import IngresoInventario from "./IngresoInventario";
+
+function porTexto(p) {
+  if (!p.actualizadoPorNombre) return "";
+  const rol = p.actualizadoPorRol ? ` (${ETIQUETA_ROL[p.actualizadoPorRol] ?? p.actualizadoPorRol})` : "";
+  return `${p.actualizadoPorNombre}${rol}`;
+}
 
 const fechaCorta = (ts) =>
   new Date(ts).toLocaleString("es", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -199,6 +206,9 @@ export default function InventoryDashboard() {
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={s.pcardName}>{p.nombre}</div>
                             <div style={s.pcardCode}>{p.barcode}</div>
+                            {p.actualizadoPorNombre && (
+                              <div style={s.pcardBy}>Por: {porTexto(p)}</div>
+                            )}
                           </div>
                           <span style={{ ...s.badge, background: BADGE[est].bg, color: BADGE[est].fg }}>
                             {BADGE[est].label}
@@ -246,7 +256,9 @@ export default function InventoryDashboard() {
                           <Fragment key={p.barcode}>
                             <tr>
                               <td style={{ ...s.td, fontFamily: "monospace", fontSize: 11, color: "#8a8fa8" }}>{p.barcode}</td>
-                              <td style={{ ...s.td, fontWeight: 500 }}>{p.nombre}</td>
+                              <td style={{ ...s.td, fontWeight: 500 }} title={porTexto(p) ? `Actualizado por ${porTexto(p)}` : undefined}>
+                                {p.nombre}
+                              </td>
                               <td style={{ ...s.td, textAlign: "right" }}>{money(p.precio)}</td>
                               <td style={{ ...s.td, textAlign: "right", fontWeight: 600, color: BADGE[est].fg }}>{p.unidades}</td>
                               <td style={{ ...s.td, textAlign: "right", color: "#5a5e78" }}>{money(p.precio * p.unidades)}</td>
@@ -361,6 +373,7 @@ const s = {
   pcardTop: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 },
   pcardName: { fontSize: 14, fontWeight: 600, color: "#1a1c2e" },
   pcardCode: { fontSize: 11, fontFamily: "monospace", color: "#8a8fa8", marginTop: 1 },
+  pcardBy: { fontSize: 11, color: "#a0a3b5", marginTop: 2 },
   pcardStats: {
     display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, color: "#8a8fa8",
   },

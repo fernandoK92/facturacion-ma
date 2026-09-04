@@ -5,13 +5,16 @@
 // Las LECTURAS son síncronas y salen de una caché en memoria (para que el
 // escaneo sea instantáneo). Las ESCRITURAS actualizan la caché de inmediato
 // (optimista) y luego persisten en segundo plano.
+//
+// `actor` ({nombre, rol}) es opcional y viaja en upsertProduct/addStock para
+// dejar registro de quién creó / modificó cada producto.
 
 import { supabase, supabaseReady } from "./supabase";
 
 const STORAGE_KEY = "facturacion-ma:productos:v1";
 const listeners = new Set();
 
-/** barcode -> { barcode, nombre, precio, unidades, createdAt, updatedAt } */
+/** barcode -> { barcode, nombre, precio, unidades, createdAt, updatedAt, creadoPorNombre, creadoPorRol, actualizadoPorNombre, actualizadoPorRol } */
 let cache = {};
 
 function emit() {
@@ -54,6 +57,10 @@ function rowToProduct(r) {
     unidades: Number(r.unidades) || 0,
     createdAt: r.created_at ? Date.parse(r.created_at) : Date.now(),
     updatedAt: r.updated_at ? Date.parse(r.updated_at) : Date.now(),
+    creadoPorNombre: r.creado_por_nombre ?? "",
+    creadoPorRol: r.creado_por_rol ?? "",
+    actualizadoPorNombre: r.actualizado_por_nombre ?? "",
+    actualizadoPorRol: r.actualizado_por_rol ?? "",
   };
 }
 
@@ -115,12 +122,17 @@ export function getStats() {
 }
 
 // ---------- ESCRITURAS (optimistas + persistencia async) ----------
-export async function upsertProduct({ barcode, nombre, precio, unidades }) {
+/**
+ * @param {{barcode:string,nombre:string,precio:number,unidades:number}} data
+ * @param {{nombre?:string, rol?:string}} [actor] quién hace el cambio (opcional)
+ */
+export async function upsertProduct({ barcode, nombre, precio, unidades }, actor) {
   const key = normalizeBarcode(barcode);
   if (!key) throw new Error("Código de barras vacío");
 
   const now = Date.now();
   const prev = cache[key];
+  const esNuevo = !prev;
   const producto = {
     barcode: key,
     nombre: String(nombre ?? "").trim(),
@@ -128,18 +140,29 @@ export async function upsertProduct({ barcode, nombre, precio, unidades }) {
     unidades: Math.max(0, Math.round(Number(unidades) || 0)),
     createdAt: prev?.createdAt ?? now,
     updatedAt: now,
+    creadoPorNombre: esNuevo ? actor?.nombre ?? "" : prev?.creadoPorNombre ?? "",
+    creadoPorRol: esNuevo ? actor?.rol ?? "" : prev?.creadoPorRol ?? "",
+    actualizadoPorNombre: actor?.nombre ?? prev?.actualizadoPorNombre ?? "",
+    actualizadoPorRol: actor?.rol ?? prev?.actualizadoPorRol ?? "",
   };
   cache[key] = producto;
   emit();
 
   if (supabaseReady) {
-    const { error } = await supabase.from("productos").upsert({
+    const payload = {
       barcode: producto.barcode,
       nombre: producto.nombre,
       precio: producto.precio,
       unidades: producto.unidades,
       updated_at: new Date(now).toISOString(),
-    });
+      actualizado_por_nombre: producto.actualizadoPorNombre || null,
+      actualizado_por_rol: producto.actualizadoPorRol || null,
+    };
+    if (esNuevo) {
+      payload.creado_por_nombre = producto.creadoPorNombre || null;
+      payload.creado_por_rol = producto.creadoPorRol || null;
+    }
+    const { error } = await supabase.from("productos").upsert(payload);
     if (error) {
       await hydrateProducts();
       throw new Error(error.message);
@@ -150,7 +173,12 @@ export async function upsertProduct({ barcode, nombre, precio, unidades }) {
   return producto;
 }
 
-export async function addStock(barcode, delta) {
+/**
+ * @param {string} barcode
+ * @param {number} delta
+ * @param {{nombre?:string, rol?:string}} [actor]
+ */
+export async function addStock(barcode, delta, actor) {
   const key = normalizeBarcode(barcode);
   const prev = cache[key];
   if (!prev) throw new Error("El producto no existe");
@@ -160,11 +188,18 @@ export async function addStock(barcode, delta) {
     ...prev,
     unidades: Math.max(0, prev.unidades + d),
     updatedAt: Date.now(),
+    actualizadoPorNombre: actor?.nombre ?? prev.actualizadoPorNombre,
+    actualizadoPorRol: actor?.rol ?? prev.actualizadoPorRol,
   };
   emit();
 
   if (supabaseReady) {
-    const { error } = await supabase.rpc("add_stock", { p_barcode: key, p_delta: d });
+    const { error } = await supabase.rpc("add_stock", {
+      p_barcode: key,
+      p_delta: d,
+      p_actor_nombre: actor?.nombre || null,
+      p_actor_rol: actor?.rol || null,
+    });
     if (error) {
       await hydrateProducts();
       throw new Error(error.message);
