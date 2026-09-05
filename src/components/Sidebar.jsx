@@ -1,83 +1,4 @@
-
-// Logo animado SVG inspirado en el carrito con vegetales
-function AnimatedLogo() {
-  return (
-    <>
-      <style>{`
-        @keyframes cartBounce {
-          0%, 100% { transform: translateY(0); }
-          30%       { transform: translateY(-4px); }
-          50%       { transform: translateY(-2px); }
-          70%       { transform: translateY(-5px); }
-        }
-        @keyframes vegBob1 {
-          0%, 100% { transform: rotate(0deg) translateY(0); }
-          25%       { transform: rotate(-8deg) translateY(-2px); }
-          75%       { transform: rotate(5deg) translateY(-1px); }
-        }
-        @keyframes vegBob2 {
-          0%, 100% { transform: rotate(0deg) translateY(0); }
-          25%       { transform: rotate(6deg) translateY(-3px); }
-          75%       { transform: rotate(-4deg) translateY(-1px); }
-        }
-        @keyframes vegBob3 {
-          0%, 100% { transform: rotate(0deg) translateY(0); }
-          25%       { transform: rotate(-5deg) translateY(-1px); }
-          75%       { transform: rotate(8deg) translateY(-3px); }
-        }
-        .cart-svg     { animation: cartBounce 2.5s ease-in-out infinite; transform-origin: center bottom; }
-        .veg-eggplant { animation: vegBob1 2.5s ease-in-out infinite; transform-origin: 22px 23px; }
-        .veg-carrot   { animation: vegBob2 2.5s ease-in-out infinite; transform-origin: 33px 22px; }
-        .veg-tomato   { animation: vegBob3 2.5s ease-in-out infinite; transform-origin: 45px 23px; }
-      `}</style>
-      <svg
-        className="cart-svg"
-        width="52"
-        height="58"
-        viewBox="0 0 64 64"
-        xmlns="http://www.w3.org/2000/svg"
-        style={{ marginBottom: 0 }}
-      >
-        {/* Cesta */}
-        <path d="M4 10 Q8 10 10 16 L18 42" stroke="#f97316" strokeWidth="4" fill="none" strokeLinecap="round" />
-        <rect x="14" y="28" width="38" height="18" rx="2" fill="#f97316" />
-        {/* Líneas horizontales */}
-        <line x1="14" y1="33" x2="52" y2="33" stroke="#e56a00" strokeWidth="0.8" />
-        <line x1="14" y1="38" x2="52" y2="38" stroke="#e56a00" strokeWidth="0.8" />
-        <line x1="14" y1="43" x2="52" y2="43" stroke="#e56a00" strokeWidth="0.8" />
-        {/* Líneas verticales */}
-        <line x1="22" y1="28" x2="22" y2="46" stroke="#e56a00" strokeWidth="0.8" />
-        <line x1="30" y1="28" x2="30" y2="46" stroke="#e56a00" strokeWidth="0.8" />
-        <line x1="38" y1="28" x2="38" y2="46" stroke="#e56a00" strokeWidth="0.8" />
-        <line x1="46" y1="28" x2="46" y2="46" stroke="#e56a00" strokeWidth="0.8" />
-        {/* Ruedas */}
-        <circle cx="22" cy="52" r="5" fill="#1a1a1a" />
-        <circle cx="22" cy="52" r="2" fill="#555" />
-        <circle cx="44" cy="52" r="5" fill="#1a1a1a" />
-        <circle cx="44" cy="52" r="2" fill="#555" />
-        {/* Berenjena */}
-        <g className="veg-eggplant">
-          <ellipse cx="22" cy="23" rx="5" ry="7" fill="#7c3aed" />
-          <path d="M22 16 Q24 12 27 13" stroke="#4ade80" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-          <ellipse cx="22" cy="19" rx="2" ry="2.5" fill="#9f67f5" opacity="0.5" />
-        </g>
-        {/* Zanahoria */}
-        <g className="veg-carrot">
-          <ellipse cx="33" cy="22" rx="4.5" ry="6.5" fill="#fb923c" />
-          <path d="M30 16 Q32 11 35 12" stroke="#4ade80" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-          <path d="M33 18 Q36 19 35 22" stroke="#ea6c0a" strokeWidth="0.8" fill="none" strokeLinecap="round" />
-        </g>
-        {/* Tomate */}
-        <g className="veg-tomato">
-          <ellipse cx="45" cy="23" rx="5" ry="5.5" fill="#dc2626" />
-          <path d="M43 17 Q45 13 47 14" stroke="#4ade80" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-          <ellipse cx="43" cy="21" rx="1.5" ry="2" fill="#ef4444" opacity="0.5" />
-        </g>
-      </svg>
-    </>
-  );
-}
-
+import LOGIN_LOGO from "../assets/login-logo.png";
 import {
   TbLayoutDashboard,
   TbBarcode,
@@ -129,10 +50,9 @@ export default function Sidebar({ activeNav, setActiveNav, permitidas, open = fa
   return (
     <aside className={`sidebar-modern${open ? " open" : ""}`}>
       <div className="sidebar-logo-area">
-        <div className="sidebar-logo-icon" style={{background: 'none', marginBottom: 0, height: '58px', width: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-          <AnimatedLogo />
+        <div className="sidebar-logo-icon" style={{background: 'none', marginBottom: 0, height: '76px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start'}}>
+          <img src={LOGIN_LOGO} alt="Su Market" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
         </div>
-        <div className="sidebar-brand">Su Market</div>
       </div>
 
       {principales.length > 0 && <div className="sidebar-section">PRINCIPAL</div>}
@@ -208,11 +128,6 @@ export default function Sidebar({ activeNav, setActiveNav, permitidas, open = fa
           align-items: center;
           justify-content: center;
           margin-bottom: 10px;
-        }
-        .sidebar-brand {
-          font-size: 16px;
-          font-weight: 700;
-          color: #1e293b;
         }
         .sidebar-section {
           font-size: 11px;
