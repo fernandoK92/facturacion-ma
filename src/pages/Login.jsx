@@ -261,15 +261,6 @@ export default function Login() {
         }
         .sm-alert-error{ background:#fdecea; color:#b3261e; border:1px solid #f6c6c1; }
         .sm-alert-ok{ background:#eaf6ec; color:#1e7a34; border:1px solid #bfe3c6; }
-
-        .sm-nota{
-          margin-top:16px;
-          font-size:11.5px;
-          line-height:1.5;
-          color:var(--muted);
-          text-align:center;
-          font-family:'Inter',sans-serif;
-        }
       `}</style>
 
       <div className="sm-body">
@@ -391,12 +382,6 @@ export default function Login() {
                 <span>{cargando ? "Un momento…" : esRegistro ? "Crear cuenta" : "Entrar"}</span>
               </button>
             </form>
-
-            <p className="sm-nota">
-              La primera cuenta que se crea es la <strong>propietaria</strong>. Las
-              demás entran como <strong>vendedor</strong> y se ajustan desde la
-              pantalla <em>Usuarios</em>.
-            </p>
           </div>
 
         </div>
