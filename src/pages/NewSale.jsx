@@ -83,12 +83,15 @@ export default function NewSale() {
   useBarcodeScanner(addToCart, { enabled: !confirmPay && !camaraAbierta && !modal });
 
   /** Agrega una línea que no es un producto de inventario (recarga, bus…). */
-  function addServiceLine({ nombre, precio, tipo, codigo }) {
+  function addServiceLine({ nombre, precio, tipo, codigo, foto }) {
     const prefix = tipo === "bus" ? "BUS" : "REC";
     const barcode = codigo
       ? `${prefix}-${codigo}-${Date.now().toString(36).toUpperCase()}`
       : generarCodigoInterno(prefix);
-    setCart((prev) => [...prev, { barcode, nombre, precio: Number(precio) || 0, cantidad: 1, tipo }]);
+    setCart((prev) => [
+      ...prev,
+      { barcode, nombre, precio: Number(precio) || 0, cantidad: 1, tipo, foto },
+    ]);
     flash(`+ ${nombre}`);
     setModal(null);
   }
@@ -206,6 +209,9 @@ export default function NewSale() {
                 const sinStock = typeof stock === "number" && l.cantidad > stock;
                 return (
                   <div key={l.barcode} style={s.cartRow}>
+                    {l.foto && (
+                      <img src={l.foto} alt="Evidencia" style={s.cartThumb} />
+                    )}
                     <div style={s.cartInfo}>
                       <div style={s.cartName}>{TIPO_ICON[l.tipo] ?? ""}{l.nombre}</div>
                       <div style={s.cartCode}>
@@ -434,6 +440,7 @@ const s = {
     display: "flex", alignItems: "center", gap: 8, padding: "10px 12px",
     borderTop: "0.5px solid #f0f1f5",
   },
+  cartThumb: { width: 32, height: 32, borderRadius: 6, objectFit: "cover", flexShrink: 0 },
   cartInfo: { flex: 1, minWidth: 90 },
   cartName: { fontSize: 13, fontWeight: 600, color: "#1a1c2e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   cartCode: { fontSize: 11, color: "#8a8fa8" },

@@ -1,32 +1,20 @@
 import { useRef, useState } from "react";
-import { leerCodigoTarjeta } from "../lib/ocr";
 
-// Si la foto viene enorme (cámaras de celular actuales: 3000-4000px de
-// ancho) la reducimos antes de mandarla al OCR — Tesseract tarda mucho
-// con imágenes gigantes y no hace falta tanto detalle.
-const MAX_DIM = 1600;
+// La foto es solo evidencia (no se procesa ni se lee nada de ella), así
+// que alcanza con guardarla bien liviana.
+const MAX_DIM = 900;
+const CALIDAD_JPEG = 0.75;
 
 /**
- * Lee los dígitos IMPRESOS de una tarjeta (sin código de barras) con la
- * cámara, usando OCR (Tesseract.js).
- *
- * Usa la app de cámara NATIVA del teléfono (<input type="file"
- * accept="image/*" capture="environment">) en vez de mostrar una vista
- * previa en vivo dentro de la página: los navegadores móviles casi no
- * exponen control de enfoque programable (probado con getCapabilities/
- * applyConstraints y con reintentos al tocar — no funcionaba en la
- * práctica), pero la app de cámara del propio teléfono SÍ enfoca bien
- * (autoenfoque real, tocar para enfocar, zoom, todo lo de siempre).
- *
- * Flujo en dos pasos: se toma la foto con la cámara nativa, se revisa
- * acá (puede repetirse si salió borrosa) y recién al confirmarla se
- * manda a leer.
+ * Toma una foto con la cámara NATIVA del teléfono (<input type="file"
+ * accept="image/*" capture="environment">) para usarla como evidencia
+ * — por ejemplo, la tarjeta de bus que se recargó. No lee ni procesa
+ * nada de la imagen, solo la deja lista (achicada y comprimida) y la
+ * entrega en `onCapturada(dataUrl)` cuando el usuario la confirma.
  */
-export default function CardScanner({ onDetected, onClose }) {
+export default function CapturaFoto({ titulo = "Tomar foto", onCapturada, onClose }) {
   const inputRef = useRef(null);
-  const fotoCanvasRef = useRef(null);
-
-  const [fase, setFase] = useState("camara"); // camara | revision | leyendo
+  const [fase, setFase] = useState("camara"); // camara | revision
   const [fotoUrl, setFotoUrl] = useState(null);
   const [error, setError] = useState("");
 
@@ -36,7 +24,7 @@ export default function CardScanner({ onDetected, onClose }) {
 
   function onFileSelected(e) {
     const file = e.target.files?.[0];
-    e.target.value = ""; // permite volver a elegir/tomar la misma foto después
+    e.target.value = "";
     if (!file) return;
     setError("");
 
@@ -55,8 +43,7 @@ export default function CardScanner({ onDetected, onClose }) {
       canvas.width = width;
       canvas.height = height;
       canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-      fotoCanvasRef.current = canvas;
-      setFotoUrl(canvas.toDataURL("image/jpeg", 0.9));
+      setFotoUrl(canvas.toDataURL("image/jpeg", CALIDAD_JPEG));
       setFase("revision");
     };
     img.onerror = () => {
@@ -68,41 +55,25 @@ export default function CardScanner({ onDetected, onClose }) {
 
   function repetirFoto() {
     setFotoUrl(null);
-    fotoCanvasRef.current = null;
     setError("");
     setFase("camara");
   }
 
-  async function usarFoto() {
-    const canvas = fotoCanvasRef.current;
-    if (!canvas) return;
-    setFase("leyendo");
-    setError("");
-    try {
-      const texto = await leerCodigoTarjeta(canvas);
-      if (!texto) {
-        setError("No se pudo leer nada. Repite la foto con más luz y acercando la tarjeta.");
-        setFase("revision");
-        return;
-      }
-      onDetected(texto);
-    } catch (err) {
-      setError("No se pudo leer la tarjeta: " + (err?.message || err));
-      setFase("revision");
-    }
+  function usarFoto() {
+    if (!fotoUrl) return;
+    onCapturada(fotoUrl);
   }
 
   return (
     <div style={s.overlay} onClick={onClose}>
       <div style={s.sheet} onClick={(e) => e.stopPropagation()}>
         <div style={s.header}>
-          <span style={{ fontWeight: 600, color: "#1a1c2e" }}>Leer tarjeta de bus</span>
+          <span style={{ fontWeight: 600, color: "#1a1c2e" }}>{titulo}</span>
           <button style={s.closeBtn} onClick={onClose}>✕</button>
         </div>
 
         {error && <div style={s.error}>{error}</div>}
 
-        {/* Oculto: dispara la cámara/galería nativa del dispositivo. */}
         <input
           ref={inputRef}
           type="file"
@@ -112,44 +83,25 @@ export default function CardScanner({ onDetected, onClose }) {
           onChange={onFileSelected}
         />
 
-        {fase === "camara" && (
+        {fase === "camara" ? (
           <>
             <div style={s.previewPlaceholder}>
               <div style={{ fontSize: 34 }}>🪪</div>
-              <p style={s.hint}>
-                Se abre la cámara del teléfono: encuadrá y enfocá bien los
-                dígitos antes de tomar la foto (tocá la pantalla para
-                enfocar, como en cualquier foto).
-              </p>
+              <p style={s.hint}>Se abre la cámara del teléfono para tomar la foto</p>
             </div>
             <button style={s.captureBtn} onClick={abrirCamara}>📷 Abrir cámara</button>
           </>
-        )}
-
-        {(fase === "revision" || fase === "leyendo") && (
-          <div style={s.videoWrap}>
-            <img src={fotoUrl} alt="Foto de la tarjeta" style={s.video} />
-            {fase === "leyendo" && (
-              <div style={s.leyendoOverlay}>
-                <div style={s.spinner} />
-                <span>Leyendo…</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {fase === "revision" && (
+        ) : (
           <>
-            <p style={s.hint}>¿Se ven claros los dígitos de la tarjeta?</p>
+            <div style={s.videoWrap}>
+              <img src={fotoUrl} alt="Foto tomada" style={s.video} />
+            </div>
+            <p style={s.hint}>¿Se ve bien la foto?</p>
             <div style={s.row}>
               <button style={s.retakeBtn} onClick={repetirFoto}>🔄 Repetir foto</button>
               <button style={s.captureBtnFlex} onClick={usarFoto}>✓ Usar esta foto</button>
             </div>
           </>
-        )}
-
-        {fase === "leyendo" && (
-          <p style={s.hint}>Un momento, reconociendo el texto…</p>
         )}
       </div>
     </div>
@@ -180,15 +132,6 @@ const s = {
     borderRadius: 12, overflow: "hidden",
   },
   video: { width: "100%", height: "100%", objectFit: "contain" },
-  leyendoOverlay: {
-    position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", color: "#fff",
-    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
-    fontSize: 13, fontWeight: 600,
-  },
-  spinner: {
-    width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.35)",
-    borderTopColor: "#fff", animation: "cs-spin 0.8s linear infinite",
-  },
   hint: { fontSize: 12, color: "#8a8fa8", textAlign: "center", margin: "12px 0" },
   captureBtn: {
     width: "100%", padding: "14px", fontSize: 15, fontWeight: 700, background: "#1a237e",
@@ -208,11 +151,3 @@ const s = {
     fontSize: 13, textAlign: "center", marginBottom: 10,
   },
 };
-
-// Animación del spinner (se inyecta una sola vez).
-if (typeof document !== "undefined" && !document.getElementById("cs-spin-style")) {
-  const style = document.createElement("style");
-  style.id = "cs-spin-style";
-  style.textContent = "@keyframes cs-spin { to { transform: rotate(360deg); } }";
-  document.head.appendChild(style);
-}

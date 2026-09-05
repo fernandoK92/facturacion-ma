@@ -16,6 +16,7 @@ function inicioDeHoy() {
 export default function SalesHistory() {
   const ventas = useSales();
   const [abierta, setAbierta] = useState(null);
+  const [fotoAmpliada, setFotoAmpliada] = useState(null);
 
   const [rolFiltro, setRolFiltro] = useState("todos");
   const [cajeroFiltro, setCajeroFiltro] = useState("todos");
@@ -196,6 +197,16 @@ export default function SalesHistory() {
                         <div style={s.detailFecha}>📅 {fechaHoraLarga(v.fecha)}</div>
                         {v.items.map((it) => (
                           <div key={it.barcode} style={s.detailRow}>
+                            {it.foto && (
+                              <button
+                                type="button"
+                                style={s.thumbBtn}
+                                onClick={() => setFotoAmpliada(it.foto)}
+                                title="Ver evidencia"
+                              >
+                                <img src={it.foto} alt="Evidencia" style={s.thumb} />
+                              </button>
+                            )}
                             <span style={{ flex: 1 }}>
                               {TIPO_ICON[it.tipo] ?? ""}{it.nombre}
                               <span style={{ color: "#8a8fa8" }}> × {it.cantidad}</span>
@@ -218,6 +229,13 @@ export default function SalesHistory() {
             </Card>
           )}
         </>
+      )}
+
+      {fotoAmpliada && (
+        <div style={s.lightbox} onClick={() => setFotoAmpliada(null)}>
+          <img src={fotoAmpliada} alt="Evidencia ampliada" style={s.lightboxImg} />
+          <button style={s.lightboxClose} onClick={() => setFotoAmpliada(null)}>✕</button>
+        </div>
       )}
     </div>
   );
@@ -262,7 +280,21 @@ const s = {
   detail: { padding: "0 18px 14px 18px", background: "#fafbfc" },
   detailFecha: { fontSize: 11, color: "#5a5e78", fontWeight: 600, padding: "10px 0 6px" },
   detailRow: {
-    display: "flex", justifyContent: "space-between", fontSize: 12, color: "#1a1c2e",
-    padding: "4px 0",
+    display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between",
+    fontSize: 12, color: "#1a1c2e", padding: "4px 0",
+  },
+  thumbBtn: {
+    padding: 0, border: "none", background: "none", cursor: "pointer", flexShrink: 0,
+    borderRadius: 6, overflow: "hidden", lineHeight: 0,
+  },
+  thumb: { width: 28, height: 28, objectFit: "cover", display: "block" },
+  lightbox: {
+    position: "fixed", inset: 0, background: "rgba(15,18,40,0.9)", zIndex: 1100,
+    display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+  },
+  lightboxImg: { maxWidth: "100%", maxHeight: "100%", borderRadius: 12 },
+  lightboxClose: {
+    position: "fixed", top: 20, right: 20, width: 36, height: 36, borderRadius: "50%",
+    border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 16, cursor: "pointer",
   },
 };

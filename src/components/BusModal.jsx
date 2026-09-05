@@ -1,44 +1,24 @@
 import { useState } from "react";
-import CardScanner from "./CardScanner";
+import CapturaFoto from "./CapturaFoto";
 
 /**
- * Modal para recargar una tarjeta de bus. Estas tarjetas NO tienen código
- * de barras: tienen dígitos impresos que hay que leer con la cámara (OCR)
- * o escribir a mano. Como el OCR no es perfecto, siempre se muestra el
- * resultado en un campo editable para que el cajero lo confirme.
+ * Modal para recargar una tarjeta de bus. Se toma una foto de la
+ * tarjeta como evidencia (no se lee ni procesa nada de ella) y se
+ * pone cuánto se recargó — la foto queda guardada junto con la venta
+ * por si hace falta revisarla después.
  */
 export default function BusModal({ onAdd, onClose }) {
-  const [paso, setPaso] = useState("captura"); // captura | confirmar | monto
-  const [codigo, setCodigo] = useState("");
-  const [manual, setManual] = useState("");
+  const [paso, setPaso] = useState("foto"); // foto | monto
+  const [foto, setFoto] = useState(null);
   const [camaraAbierta, setCamaraAbierta] = useState(false);
   const [monto, setMonto] = useState("");
   const [error, setError] = useState("");
 
-  function leido(texto) {
-    setCodigo(texto);
+  function fotoTomada(dataUrl) {
+    setFoto(dataUrl);
     setCamaraAbierta(false);
-    setPaso("confirmar");
-    setError("");
-  }
-
-  function usarManual(e) {
-    e.preventDefault();
-    if (!manual.trim()) return;
-    setCodigo(manual.trim().toUpperCase());
-    setPaso("confirmar");
-    setError("");
-  }
-
-  function confirmarCodigo(e) {
-    e.preventDefault();
-    if (!codigo.trim()) {
-      setError("Escribe o lee el código de la tarjeta.");
-      return;
-    }
-    setCodigo(codigo.trim().toUpperCase());
-    setError("");
     setPaso("monto");
+    setError("");
   }
 
   function submit(e) {
@@ -48,10 +28,10 @@ export default function BusModal({ onAdd, onClose }) {
       return;
     }
     onAdd({
-      nombre: `Recarga bus · ${codigo}`,
+      nombre: "Recarga bus",
       precio: Number(monto),
       tipo: "bus",
-      codigo,
+      foto,
     });
   }
 
@@ -63,66 +43,38 @@ export default function BusModal({ onAdd, onClose }) {
           <button style={s.closeBtn} onClick={onClose}>✕</button>
         </div>
 
-        {paso === "captura" && (
+        {paso === "foto" && (
           <>
             <div style={s.scanHero}>
               <div style={{ fontSize: 28, marginBottom: 6 }}>🪪</div>
               <div style={{ fontWeight: 600, fontSize: 14, color: "#1a1c2e" }}>
-                Lee los dígitos de la tarjeta
+                Sacale una foto a la tarjeta
               </div>
               <div style={{ fontSize: 12, color: "#8a8fa8", marginTop: 2 }}>
-                Sin código de barras: la cámara reconoce el texto impreso
-                (ej. CURA0011600395)
+                Queda como evidencia de que se recargó esta tarjeta
               </div>
             </div>
 
             <button style={s.camBtn} onClick={() => setCamaraAbierta(true)}>
-              📷 Leer con cámara
+              📷 Tomar foto de la tarjeta
             </button>
-
-            <form onSubmit={usarManual} style={s.manualRow}>
-              <input
-                style={s.input}
-                placeholder="…o escribe el código a mano"
-                value={manual}
-                onChange={(e) => setManual(e.target.value)}
-              />
-              <button type="submit" style={s.manualBtn}>Usar</button>
-            </form>
           </>
-        )}
-
-        {paso === "confirmar" && (
-          <form onSubmit={confirmarCodigo} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <label style={s.field}>
-              <span style={s.lbl}>Verifica que el código esté bien (el OCR a veces se equivoca)</span>
-              <input
-                style={s.codeInput}
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value.toUpperCase())}
-                autoFocus
-              />
-            </label>
-            {error && <div style={s.error}>{error}</div>}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                style={s.cancelBtn}
-                onClick={() => { setCodigo(""); setError(""); setPaso("captura"); }}
-              >
-                Volver a leer
-              </button>
-              <button type="submit" style={s.addBtn}>Continuar</button>
-            </div>
-          </form>
         )}
 
         {paso === "monto" && (
           <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={s.codeChip}>
-              {codigo}
-              <button type="button" style={s.changeBtn} onClick={() => setPaso("confirmar")}>Editar</button>
-            </div>
+            {foto && (
+              <div style={s.fotoPreviewWrap}>
+                <img src={foto} alt="Foto de la tarjeta" style={s.fotoPreview} />
+                <button
+                  type="button"
+                  style={s.cambiarFotoBtn}
+                  onClick={() => setCamaraAbierta(true)}
+                >
+                  🔄 Cambiar foto
+                </button>
+              </div>
+            )}
             <label style={s.field}>
               <span style={s.lbl}>Cuánto se recargó</span>
               <input
@@ -141,7 +93,11 @@ export default function BusModal({ onAdd, onClose }) {
       </div>
 
       {camaraAbierta && (
-        <CardScanner onDetected={leido} onClose={() => setCamaraAbierta(false)} />
+        <CapturaFoto
+          titulo="Foto de la tarjeta"
+          onCapturada={fotoTomada}
+          onClose={() => setCamaraAbierta(false)}
+        />
       )}
     </div>
   );
@@ -168,41 +124,22 @@ const s = {
   camBtn: {
     width: "100%", padding: "13px", fontSize: 14, fontWeight: 600, background: "#eef0fb",
     color: "#1a237e", border: "0.5px solid #d7dbf5", borderRadius: 10, cursor: "pointer",
-    marginBottom: 10,
   },
-  manualRow: { display: "flex", gap: 8 },
-  manualBtn: {
-    padding: "0 16px", fontSize: 13, fontWeight: 600, background: "#f4f5f9",
-    color: "#1a237e", border: "0.5px solid #e8eaf0", borderRadius: 9, cursor: "pointer",
+  fotoPreviewWrap: { position: "relative", borderRadius: 12, overflow: "hidden" },
+  fotoPreview: { width: "100%", maxHeight: 220, objectFit: "cover", display: "block" },
+  cambiarFotoBtn: {
+    position: "absolute", right: 8, bottom: 8, padding: "7px 12px", fontSize: 12, fontWeight: 600,
+    background: "rgba(26,28,46,0.75)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer",
   },
   input: {
-    flex: 1, minWidth: 0, padding: "12px 13px", fontSize: 14, border: "0.5px solid #d0d3e0", borderRadius: 9,
-    outline: "none", background: "#fff", color: "#1a1c2e", boxSizing: "border-box",
-  },
-  codeInput: {
-    padding: "13px 14px", fontSize: 16, fontFamily: "monospace", fontWeight: 700,
-    border: "0.5px solid #d0d3e0", borderRadius: 9, outline: "none", background: "#fff",
-    color: "#1a237e", boxSizing: "border-box", width: "100%",
+    padding: "13px 14px", fontSize: 16, border: "0.5px solid #d0d3e0", borderRadius: 9,
+    outline: "none", background: "#fff", color: "#1a1c2e", boxSizing: "border-box", width: "100%",
   },
   field: { display: "flex", flexDirection: "column", gap: 5 },
   lbl: { fontSize: 12, fontWeight: 600, color: "#5a5e78" },
-  codeChip: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    fontFamily: "monospace", fontSize: 14, fontWeight: 600, color: "#1a237e",
-    background: "#eef0fb", borderRadius: 9, padding: "10px 12px",
-  },
-  changeBtn: {
-    fontSize: 11, fontWeight: 600, color: "#5a5e78", background: "#fff",
-    border: "0.5px solid #e8eaf0", borderRadius: 7, padding: "4px 8px", cursor: "pointer",
-    fontFamily: "'DM Sans','Segoe UI',sans-serif",
-  },
-  cancelBtn: {
-    flex: "0 0 auto", padding: "13px 16px", fontSize: 13, fontWeight: 600, background: "#fff",
-    color: "#5a5e78", border: "0.5px solid #e8eaf0", borderRadius: 10, cursor: "pointer",
-  },
   error: { background: "#ffebee", color: "#c62828", fontSize: 13, padding: "8px 10px", borderRadius: 8 },
   addBtn: {
-    flex: 1, padding: "14px", fontSize: 15, fontWeight: 700, background: "#2e7d32", color: "#fff",
+    width: "100%", padding: "14px", fontSize: 15, fontWeight: 700, background: "#2e7d32", color: "#fff",
     border: "none", borderRadius: 10, cursor: "pointer",
   },
 };
