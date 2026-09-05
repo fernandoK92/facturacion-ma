@@ -1,136 +1,76 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { leerCodigoTarjeta } from "../lib/ocr";
 
-// Activa autoenfoque continuo si el dispositivo lo soporta (no todos los
-// navegadores lo exponen — si no, sencillamente no hace nada).
-function activarEnfoqueContinuo(track) {
-  try {
-    const modos = track?.getCapabilities?.()?.focusMode;
-    if (modos?.includes("continuous")) {
-      track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
-    }
-  } catch {
-    // Cámara/navegador sin soporte de enfoque programable: nada que hacer.
-  }
-}
+// Si la foto viene enorme (cámaras de celular actuales: 3000-4000px de
+// ancho) la reducimos antes de mandarla al OCR — Tesseract tarda mucho
+// con imágenes gigantes y no hace falta tanto detalle.
+const MAX_DIM = 1600;
 
 /**
  * Lee los dígitos IMPRESOS de una tarjeta (sin código de barras) con la
- * cámara, usando OCR (Tesseract.js). Flujo en dos pasos, como una cámara
- * normal: primero se TOMA LA FOTO (queda congelada para revisarla) y
- * recién al confirmarla se manda a leer — así se puede repetir la foto
- * si salió borrosa, antes de gastar tiempo intentando leerla.
+ * cámara, usando OCR (Tesseract.js).
+ *
+ * Usa la app de cámara NATIVA del teléfono (<input type="file"
+ * accept="image/*" capture="environment">) en vez de mostrar una vista
+ * previa en vivo dentro de la página: los navegadores móviles casi no
+ * exponen control de enfoque programable (probado con getCapabilities/
+ * applyConstraints y con reintentos al tocar — no funcionaba en la
+ * práctica), pero la app de cámara del propio teléfono SÍ enfoca bien
+ * (autoenfoque real, tocar para enfocar, zoom, todo lo de siempre).
+ *
+ * Flujo en dos pasos: se toma la foto con la cámara nativa, se revisa
+ * acá (puede repetirse si salió borrosa) y recién al confirmarla se
+ * manda a leer.
  */
 export default function CardScanner({ onDetected, onClose }) {
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const trackRef = useRef(null);
+  const inputRef = useRef(null);
   const fotoCanvasRef = useRef(null);
 
   const [fase, setFase] = useState("camara"); // camara | revision | leyendo
   const [fotoUrl, setFotoUrl] = useState(null);
   const [error, setError] = useState("");
-  const [puntoEnfoque, setPuntoEnfoque] = useState(null); // {x,y} en % para el anillo visual
 
-  // Tocar la vista previa reintenta el enfoque en ese punto (como una
-  // cámara de celular normal) — mejor esfuerzo: en equipos sin esta
-  // capacidad no rompe nada, solo no hace efecto real además del visual.
-  function enfocarEn(e) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setPuntoEnfoque({ x, y });
-    setTimeout(() => setPuntoEnfoque(null), 700);
-
-    const track = trackRef.current;
-    try {
-      const cap = track?.getCapabilities?.();
-      if (!cap) return;
-      const avanzado = {};
-      if (cap.focusMode?.includes("single-shot")) avanzado.focusMode = "single-shot";
-      else if (cap.focusMode?.includes("continuous")) avanzado.focusMode = "continuous";
-      if (cap.pointsOfInterest) {
-        avanzado.pointsOfInterest = [{ x: x / 100, y: y / 100 }];
-      }
-      if (Object.keys(avanzado).length > 0) {
-        track.applyConstraints({ advanced: [avanzado] }).catch(() => {});
-      }
-    } catch {
-      // Mismo caso: sin soporte, el toque solo queda como feedback visual.
-    }
+  function abrirCamara() {
+    inputRef.current?.click();
   }
 
-  // Se abre la cámara mientras estamos en la fase "camara"; al pasar a
-  // "revision" (foto tomada) o "leyendo" se cierra sola. Volver a
-  // "camara" (repetir foto) la vuelve a abrir.
-  useEffect(() => {
-    if (fase !== "camara") return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment",
-            // "ideal": el navegador se acerca lo que pueda, sin fallar
-            // si el dispositivo no llega — ayuda a que el OCR tenga
-            // más detalle para leer.
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        const track = stream.getVideoTracks()[0];
-        trackRef.current = track ?? null;
-        activarEnfoqueContinuo(track);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err?.name === "NotAllowedError"
-              ? "Permiso de cámara denegado. Actívalo en el navegador."
-              : "No se pudo abrir la cámara: " + (err?.message || err)
-          );
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      trackRef.current = null;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    };
-  }, [fase]);
-
-  function tomarFoto() {
-    const video = videoRef.current;
-    if (!video?.videoWidth) {
-      setError("La cámara todavía no está lista, espera un segundo.");
-      return;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d").drawImage(video, 0, 0);
-    fotoCanvasRef.current = canvas;
-    setFotoUrl(canvas.toDataURL("image/jpeg", 0.92));
+  function onFileSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite volver a elegir/tomar la misma foto después
+    if (!file) return;
     setError("");
-    setFase("revision"); // el efecto de arriba cierra la cámara sola
+
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      const max = Math.max(width, height);
+      if (max > MAX_DIM) {
+        const escala = MAX_DIM / max;
+        width = Math.round(width * escala);
+        height = Math.round(height * escala);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      fotoCanvasRef.current = canvas;
+      setFotoUrl(canvas.toDataURL("image/jpeg", 0.9));
+      setFase("revision");
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      setError("No se pudo abrir la foto. Probá de nuevo.");
+    };
+    img.src = url;
   }
 
   function repetirFoto() {
     setFotoUrl(null);
     fotoCanvasRef.current = null;
     setError("");
-    setFase("camara"); // el efecto de arriba vuelve a abrir la cámara
+    setFase("camara");
   }
 
   async function usarFoto() {
@@ -139,26 +79,9 @@ export default function CardScanner({ onDetected, onClose }) {
     setFase("leyendo");
     setError("");
     try {
-      // Recortamos la franja donde va el texto (según la guía) y la
-      // agrandamos: ayuda bastante a la precisión del OCR.
-      const vw = canvas.width;
-      const vh = canvas.height;
-      const cropX = vw * 0.06;
-      const cropY = vh * 0.38;
-      const cropW = vw * 0.88;
-      const cropH = vh * 0.24;
-      const escala = 2.2;
-
-      const recorte = document.createElement("canvas");
-      recorte.width = cropW * escala;
-      recorte.height = cropH * escala;
-      recorte
-        .getContext("2d")
-        .drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, recorte.width, recorte.height);
-
-      const texto = await leerCodigoTarjeta(recorte);
+      const texto = await leerCodigoTarjeta(canvas);
       if (!texto) {
-        setError("No se pudo leer nada. Repite la foto acercando más la tarjeta.");
+        setError("No se pudo leer nada. Repite la foto con más luz y acercando la tarjeta.");
         setFase("revision");
         return;
       }
@@ -179,48 +102,45 @@ export default function CardScanner({ onDetected, onClose }) {
 
         {error && <div style={s.error}>{error}</div>}
 
-        <div style={s.videoWrap}>
-          {fase === "camara" ? (
-            <video
-              ref={videoRef}
-              style={s.video}
-              muted
-              playsInline
-              onClick={enfocarEn}
-            />
-          ) : (
-            <img src={fotoUrl} alt="Foto de la tarjeta" style={s.video} />
-          )}
-          <div style={s.strip} />
-          {fase === "camara" && puntoEnfoque && (
-            <div
-              style={{
-                ...s.focusRing,
-                left: `${puntoEnfoque.x}%`,
-                top: `${puntoEnfoque.y}%`,
-              }}
-            />
-          )}
-          {fase === "leyendo" && (
-            <div style={s.leyendoOverlay}>
-              <div style={s.spinner} />
-              <span>Leyendo…</span>
-            </div>
-          )}
-        </div>
+        {/* Oculto: dispara la cámara/galería nativa del dispositivo. */}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: "none" }}
+          onChange={onFileSelected}
+        />
 
         {fase === "camara" && (
           <>
-            <p style={s.hint}>
-              Encuadra los dígitos dentro de la franja · toca la imagen para enfocar antes de tomar la foto
-            </p>
-            <button style={s.captureBtn} onClick={tomarFoto}>📸 Tomar foto</button>
+            <div style={s.previewPlaceholder}>
+              <div style={{ fontSize: 34 }}>🪪</div>
+              <p style={s.hint}>
+                Se abre la cámara del teléfono: encuadrá y enfocá bien los
+                dígitos antes de tomar la foto (tocá la pantalla para
+                enfocar, como en cualquier foto).
+              </p>
+            </div>
+            <button style={s.captureBtn} onClick={abrirCamara}>📷 Abrir cámara</button>
           </>
+        )}
+
+        {(fase === "revision" || fase === "leyendo") && (
+          <div style={s.videoWrap}>
+            <img src={fotoUrl} alt="Foto de la tarjeta" style={s.video} />
+            {fase === "leyendo" && (
+              <div style={s.leyendoOverlay}>
+                <div style={s.spinner} />
+                <span>Leyendo…</span>
+              </div>
+            )}
+          </div>
         )}
 
         {fase === "revision" && (
           <>
-            <p style={s.hint}>¿Se ve nítida la franja con el código?</p>
+            <p style={s.hint}>¿Se ven claros los dígitos de la tarjeta?</p>
             <div style={s.row}>
               <button style={s.retakeBtn} onClick={repetirFoto}>🔄 Repetir foto</button>
               <button style={s.captureBtnFlex} onClick={usarFoto}>✓ Usar esta foto</button>
@@ -250,22 +170,16 @@ const s = {
     width: 32, height: 32, borderRadius: "50%", border: "none", background: "#f4f5f9",
     fontSize: 15, cursor: "pointer", color: "#5a5e78",
   },
+  previewPlaceholder: {
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    width: "100%", aspectRatio: "4 / 3", background: "#f4f5f9", borderRadius: 12,
+    padding: "0 16px", boxSizing: "border-box", textAlign: "center",
+  },
   videoWrap: {
     position: "relative", width: "100%", aspectRatio: "4 / 3", background: "#000",
     borderRadius: 12, overflow: "hidden",
   },
-  video: { width: "100%", height: "100%", objectFit: "cover" },
-  strip: {
-    position: "absolute", left: "6%", right: "6%", top: "38%", height: "24%",
-    border: "3px solid #69f0ae", borderRadius: 8, boxShadow: "0 0 0 9999px rgba(0,0,0,0.25)",
-    pointerEvents: "none",
-  },
-  focusRing: {
-    position: "absolute", width: 56, height: 56, marginLeft: -28, marginTop: -28,
-    border: "2px solid #fff", borderRadius: "50%",
-    boxShadow: "0 0 0 2px rgba(0,0,0,0.3)",
-    pointerEvents: "none", animation: "cs-focus 0.7s ease-out forwards",
-  },
+  video: { width: "100%", height: "100%", objectFit: "contain" },
   leyendoOverlay: {
     position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", color: "#fff",
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
@@ -295,16 +209,10 @@ const s = {
   },
 };
 
-// Animación del spinner y del anillo de enfoque (se inyecta una sola vez).
+// Animación del spinner (se inyecta una sola vez).
 if (typeof document !== "undefined" && !document.getElementById("cs-spin-style")) {
   const style = document.createElement("style");
   style.id = "cs-spin-style";
-  style.textContent = `
-    @keyframes cs-spin { to { transform: rotate(360deg); } }
-    @keyframes cs-focus {
-      0% { transform: scale(1.3); opacity: 1; }
-      100% { transform: scale(0.9); opacity: 0; }
-    }
-  `;
+  style.textContent = "@keyframes cs-spin { to { transform: rotate(360deg); } }";
   document.head.appendChild(style);
 }
