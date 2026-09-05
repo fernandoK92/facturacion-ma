@@ -37,6 +37,7 @@ const MOV_META = {
   ajuste: { icon: "🔧", label: "Ajuste de stock" },
   merma: { icon: "📉", label: "Merma" },
   venta: { icon: "💰", label: "Venta" },
+  eliminacion: { icon: "🗑️", label: "Eliminado" },
 };
 
 const EMPTY_FORM = { nombre: "", precio: "", unidades: "" };
@@ -127,7 +128,7 @@ export default function InventoryDashboard() {
     setGuardando(barcode);
     setError("");
     try {
-      await deleteProduct(barcode);
+      await deleteProduct(barcode, actor);
       setConfirmDel("");
     } catch (err) {
       setError("No se pudo eliminar: " + err.message);
@@ -177,7 +178,7 @@ export default function InventoryDashboard() {
 
       {ingresoAbierto ? (
         <IngresoInventario onCerrar={() => setIngresoAbierto(false)} />
-      ) : productos.length === 0 ? (
+      ) : productos.length === 0 && movimientos.length === 0 ? (
         <EmptyState icon="📦" title="Aún no hay productos" hint="Agrega productos escaneándolos en la pantalla Escanear." />
       ) : (
         <>

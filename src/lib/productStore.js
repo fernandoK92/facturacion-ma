@@ -285,9 +285,14 @@ export async function addStock(barcode, delta, actor, tipo = "ajuste", registrar
   return cache[key];
 }
 
-export async function deleteProduct(barcode) {
+/**
+ * @param {string} barcode
+ * @param {{id?:string, nombre?:string, rol?:string}} [actor]
+ */
+export async function deleteProduct(barcode, actor) {
   const key = normalizeBarcode(barcode);
-  if (!cache[key]) return;
+  const prev = cache[key];
+  if (!prev) return;
   delete cache[key];
   emit();
 
@@ -300,4 +305,15 @@ export async function deleteProduct(barcode) {
   } else {
     writeLocal();
   }
+
+  await registrarActividad({
+    barcode: key,
+    nombre: prev.nombre,
+    tipo: "eliminacion",
+    cantidad: 0,
+    detalle: `Producto eliminado del inventario · tenía ${prev.unidades} uds. a $${prev.precio.toFixed(2)}`,
+    usuarioId: actor?.id,
+    usuarioNombre: actor?.nombre,
+    usuarioRol: actor?.rol,
+  });
 }

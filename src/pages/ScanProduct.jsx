@@ -84,7 +84,7 @@ export default function ScanProduct() {
   async function handleDelete() {
     const nombre = found?.nombre ?? "";
     try {
-      await deleteProduct(code);
+      await deleteProduct(code, actor);
       flash(`Eliminado: ${nombre}`);
       reset();
     } catch (err) {
